@@ -35,17 +35,38 @@ export default function LoginScreen() {
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const { error } = isSignUp
-      ? await signUpWithEmail(email, password, fullName)
-      : await signInWithEmail(email, password);
+    if (isSignUp) {
+      const { error, data } = await signUpWithEmail(email, password, fullName);
+      setIsLoading(false);
 
-    setIsLoading(false);
-
-    if (error) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Authentication Error', error.message);
+      if (error) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Sign Up Error', error.message);
+      } else if (data?.user && !data?.session) {
+        // User created but needs to confirm email
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Check Your Email',
+          'We sent a confirmation link to your email. Please check your inbox and click the link to activate your account.',
+          [{ text: 'OK', onPress: () => setIsSignUp(false) }]
+        );
+        setEmail('');
+        setPassword('');
+        setFullName('');
+      } else {
+        // User created and logged in (email confirmation disabled)
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const { error } = await signInWithEmail(email, password);
+      setIsLoading(false);
+
+      if (error) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Sign In Error', error.message);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     }
   };
 

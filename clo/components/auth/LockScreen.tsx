@@ -1,37 +1,87 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { BlurView } from 'expo-blur';
+import Animated, { 
+  FadeIn, 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withRepeat, 
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { useAuth } from '@/providers/AuthProvider';
-import * as Haptics from 'expo-haptics';
+import { Text, Heading, Subheading } from '@/components/ui';
+import { colors, borderRadius, spacing } from '@/constants/theme';
+import haptics from '@/lib/haptics';
 
 export default function LockScreen() {
   const { unlockApp } = useAuth();
+  
+  // Breathing animation for the lock icon
+  const breatheScale = useSharedValue(1);
+  const breatheOpacity = useSharedValue(0.5);
 
   useEffect(() => {
     // Automatically trigger biometric auth when lock screen appears
     handleUnlock();
+    
+    // Start breathing animation
+    breatheScale.value = withRepeat(
+      withSequence(
+        withTiming(1.1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    breatheOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.5, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
   }, []);
 
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breatheScale.value }],
+    opacity: breatheOpacity.value,
+  }));
+
   const handleUnlock = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    haptics.tapHeavy();
     const success = await unlockApp();
     if (success) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.success();
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      haptics.error();
     }
   };
 
   return (
     <BlurView intensity={80} style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Sanctuary Locked</Text>
-        <Text style={styles.subtitle}>Authenticate to continue</Text>
+      <Animated.View entering={FadeIn.duration(500)} style={styles.content}>
+        <Animated.View style={[styles.iconContainer, iconStyle]}>
+          <Text style={styles.icon}>🔐</Text>
+        </Animated.View>
+        
+        <Heading size="2xl" center style={styles.title}>
+          Sanctuary Locked
+        </Heading>
+        <Subheading center style={styles.subtitle}>
+          Authenticate to continue
+        </Subheading>
 
-        <TouchableOpacity style={styles.button} onPress={handleUnlock}>
-          <Text style={styles.buttonText}>Unlock</Text>
+        <TouchableOpacity 
+          style={styles.button} 
+          onPress={handleUnlock}
+          activeOpacity={0.8}
+        >
+          <Text weight="medium" style={styles.buttonText}>Unlock</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </BlurView>
   );
 }
@@ -47,32 +97,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(18, 18, 18, 0.95)',
+    zIndex: 100,
   },
   content: {
     alignItems: 'center',
-    padding: 32,
+    padding: spacing['3xl'],
+  },
+  iconContainer: {
+    marginBottom: spacing['2xl'],
+  },
+  icon: {
+    fontSize: 64,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '300',
-    color: '#E0E0E0',
-    marginBottom: 8,
-    letterSpacing: 1.5,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#A0A0A0',
-    marginBottom: 48,
+    marginBottom: spacing['4xl'],
   },
   button: {
-    backgroundColor: '#6366f1',
-    paddingHorizontal: 48,
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: colors.self,
+    paddingHorizontal: spacing['4xl'],
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.lg,
   },
   buttonText: {
-    color: '#E0E0E0',
+    color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '500',
   },
 });

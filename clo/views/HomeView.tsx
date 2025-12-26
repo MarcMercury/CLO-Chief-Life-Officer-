@@ -3,37 +3,29 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { CircleTabBar, QuickAction, ItemCard, SectionHeader } from '../components/shared';
+import { ItemList } from '../components/items';
+import {
+  InventorySection,
+  AddInventoryModal,
+  SubscriptionSection,
+  AddSubscriptionModal,
+  VendorSection,
+  MaintenanceSection,
+} from '../components/home';
+import { useHomeAlerts } from '@/hooks/useHomeOS';
+import { colors } from '@/constants/theme';
 
-const ACCENT = '#84a98c';
+const ACCENT = colors.home;
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
   { key: 'inventory', label: 'Inventory', icon: '📦' },
-  { key: 'bills', label: 'Bills', icon: '💳' },
+  { key: 'subscriptions', label: 'Subscriptions', icon: '💳' },
+  { key: 'vendors', label: 'Vendors', icon: '👷' },
+  { key: 'maintenance', label: 'Maintenance', icon: '🔧' },
 ];
 
-// Mock data
-const mockAlerts = {
-  warrantiesExpiring: 2,
-  upcomingBills: 3,
-  maintenanceOverdue: 1,
-  monthlyBurn: 487.50,
-};
-
-const mockInventory = [
-  { id: '1', name: 'MacBook Pro 16"', room: 'Office', warranty: 'Active', icon: '💻', value: 2499 },
-  { id: '2', name: 'Samsung TV 65"', room: 'Living Room', warranty: 'Expires Soon', icon: '📺', value: 1299 },
-  { id: '3', name: 'Dyson V15', room: 'Storage', warranty: 'Active', icon: '🔧', value: 749 },
-  { id: '4', name: 'KitchenAid Mixer', room: 'Kitchen', warranty: 'Expired', icon: '🍳', value: 399 },
-];
-
-const mockSubscriptions = [
-  { id: '1', name: 'Netflix', amount: 15.99, nextBill: 'Jan 5', icon: '🎬', status: 'active' },
-  { id: '2', name: 'Spotify', amount: 9.99, nextBill: 'Jan 10', icon: '🎵', status: 'active' },
-  { id: '3', name: 'iCloud+', amount: 2.99, nextBill: 'Jan 15', icon: '☁️', status: 'active' },
-  { id: '4', name: 'Adobe CC', amount: 54.99, nextBill: 'Jan 20', icon: '🎨', status: 'review' },
-];
-
+// Mock data for dashboard (will be replaced with real data)
 const mockMaintenanceTasks = [
   { id: '1', task: 'HVAC Filter Change', due: 'Overdue', room: 'Utility', icon: '🌀' },
   { id: '2', task: 'Smoke Detector Battery', due: 'Jan 15', room: 'All Rooms', icon: '🔋' },
@@ -42,15 +34,26 @@ const mockMaintenanceTasks = [
 
 export default function HomeView() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showAddInventory, setShowAddInventory] = useState(false);
+  const [showAddSubscription, setShowAddSubscription] = useState(false);
+  
+  // Get real alerts from HomeOS
+  const { data: alerts } = useHomeAlerts();
 
-  const renderDashboardTab = () => (
+  const renderDashboardTab = () => {
+    // Calculate alerts from real data
+    const warrantiesExpiring = alerts?.filter(a => a.type === 'warranty_expiring').length || 0;
+    const upcomingBills = alerts?.filter(a => a.type === 'subscription_billing').length || 0;
+    const maintenanceOverdue = alerts?.filter(a => a.type === 'maintenance_overdue').length || 0;
+    
+    return (
     <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
       {/* Quick Actions */}
       <View style={styles.quickActions}>
-        <QuickAction icon="📷" label="Scan Item" accentColor={ACCENT} onPress={() => {}} />
-        <QuickAction icon="➕" label="Add Item" accentColor={ACCENT} onPress={() => {}} />
-        <QuickAction icon="🔧" label="Find Vendor" accentColor={ACCENT} onPress={() => {}} />
-        <QuickAction icon="🔔" label="Reminders" accentColor={ACCENT} onPress={() => {}} />
+        <QuickAction icon="📷" label="Scan Item" accentColor={ACCENT} onPress={() => setShowAddInventory(true)} />
+        <QuickAction icon="➕" label="Add Item" accentColor={ACCENT} onPress={() => setShowAddInventory(true)} />
+        <QuickAction icon="🔧" label="Find Vendor" accentColor={ACCENT} onPress={() => setActiveTab('vendors')} />
+        <QuickAction icon="🔔" label="Reminders" accentColor={ACCENT} onPress={() => setActiveTab('maintenance')} />
       </View>
 
       {/* Alerts Card */}
@@ -58,34 +61,38 @@ export default function HomeView() {
         <View style={styles.alertsHeader}>
           <Text style={styles.alertsTitle}>Active Alerts</Text>
           <Text style={styles.alertsTotal}>
-            {mockAlerts.warrantiesExpiring + mockAlerts.upcomingBills + mockAlerts.maintenanceOverdue}
+            {warrantiesExpiring + upcomingBills + maintenanceOverdue}
           </Text>
         </View>
         <View style={styles.alertsGrid}>
-          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7}>
-            <Text style={styles.alertValue}>{mockAlerts.warrantiesExpiring}</Text>
+          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7} onPress={() => setActiveTab('inventory')}>
+            <Text style={styles.alertValue}>{warrantiesExpiring}</Text>
             <Text style={styles.alertLabel}>Warranties</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7}>
-            <Text style={styles.alertValue}>{mockAlerts.upcomingBills}</Text>
+          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7} onPress={() => setActiveTab('subscriptions')}>
+            <Text style={styles.alertValue}>{upcomingBills}</Text>
             <Text style={styles.alertLabel}>Bills Due</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7}>
-            <Text style={[styles.alertValue, mockAlerts.maintenanceOverdue > 0 && styles.alertWarning]}>
-              {mockAlerts.maintenanceOverdue}
+          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7} onPress={() => setActiveTab('maintenance')}>
+            <Text style={[styles.alertValue, maintenanceOverdue > 0 && styles.alertWarning]}>
+              {maintenanceOverdue}
             </Text>
             <Text style={styles.alertLabel}>Overdue</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
 
-      {/* Monthly Burn Rate */}
+      {/* Monthly Burn Rate - TODO: fetch from subscriptions */}
       <View style={styles.burnCard}>
         <Text style={styles.burnLabel}>Monthly Recurring</Text>
-        <Text style={styles.burnValue}>${mockAlerts.monthlyBurn.toFixed(2)}</Text>
+        <Text style={styles.burnValue}>$--</Text>
       </View>
 
       {/* Maintenance Tasks */}
+      <SectionHeader title="Your Items" subtitle="Home tasks & notes" />
+      <ItemList circleContext="HOME" showCompleted={false} maxItems={5} />
+
+      {/* Upcoming Maintenance */}
       <SectionHeader title="Upcoming Maintenance" subtitle={`${mockMaintenanceTasks.length} tasks`} />
       <View style={styles.taskList}>
         {mockMaintenanceTasks.map((task, index) => (
@@ -109,137 +116,53 @@ export default function HomeView() {
         ))}
       </View>
     </Animated.View>
-  );
+    );
+  };
 
   const renderInventoryTab = () => (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <QuickAction icon="📷" label="Scan" accentColor={ACCENT} onPress={() => {}} size="large" />
-        <QuickAction icon="🔍" label="Search" accentColor={ACCENT} onPress={() => {}} size="large" />
-      </View>
-
-      {/* Inventory Summary */}
-      <View style={styles.inventorySummary}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{mockInventory.length}</Text>
-          <Text style={styles.summaryLabel}>Items</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>
-            ${mockInventory.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
-          </Text>
-          <Text style={styles.summaryLabel}>Total Value</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, styles.warningText]}>
-            {mockInventory.filter(i => i.warranty === 'Expires Soon').length}
-          </Text>
-          <Text style={styles.summaryLabel}>Expiring</Text>
-        </View>
-      </View>
-
-      {/* Inventory List */}
-      <SectionHeader 
-        title="All Items" 
-        rightContent={<Text style={styles.filterLabel}>Filter ▼</Text>}
-      />
-      <View style={styles.inventoryList}>
-        {mockInventory.map((item, index) => (
-          <ItemCard
-            key={item.id}
-            title={item.name}
-            subtitle={`${item.room} • $${item.value}`}
-            icon={item.icon}
-            accentColor={ACCENT}
-            index={index}
-            onPress={() => {}}
-            rightContent={
-              <View style={[
-                styles.warrantyBadge,
-                item.warranty === 'Expired' && styles.expiredBadge,
-                item.warranty === 'Expires Soon' && styles.expiringSoonBadge
-              ]}>
-                <Text style={styles.warrantyText}>
-                  {item.warranty === 'Active' ? '✓' : item.warranty === 'Expires Soon' ? '!' : '✗'}
-                </Text>
-              </View>
-            }
-          />
-        ))}
-      </View>
-    </Animated.View>
+    <InventorySection
+      onAddPress={() => setShowAddInventory(true)}
+      onItemPress={(item) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // TODO: Open item detail modal
+      }}
+    />
   );
 
-  const renderBillsTab = () => (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <QuickAction icon="➕" label="Add Bill" accentColor={ACCENT} onPress={() => {}} size="large" />
-        <QuickAction icon="📊" label="Analytics" accentColor={ACCENT} onPress={() => {}} size="large" />
-      </View>
+  const renderSubscriptionsTab = () => (
+    <SubscriptionSection
+      onAddPress={() => setShowAddSubscription(true)}
+      onItemPress={(sub) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // TODO: Open subscription detail modal
+      }}
+    />
+  );
 
-      {/* Monthly Total */}
-      <View style={styles.monthlyCard}>
-        <Text style={styles.monthlyLabel}>This Month</Text>
-        <Text style={styles.monthlyValue}>
-          ${mockSubscriptions.reduce((sum, s) => sum + s.amount, 0).toFixed(2)}
-        </Text>
-        <Text style={styles.monthlySubtext}>
-          {mockSubscriptions.length} active subscriptions
-        </Text>
-      </View>
+  const renderVendorsTab = () => (
+    <VendorSection
+      onAddPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        // TODO: Open add vendor modal
+      }}
+      onItemPress={(vendor) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // TODO: Open vendor detail modal
+      }}
+    />
+  );
 
-      {/* Subscriptions List */}
-      <SectionHeader title="Subscriptions" subtitle="Manage your recurring bills" />
-      <View style={styles.subscriptionList}>
-        {mockSubscriptions.map((sub, index) => (
-          <Animated.View 
-            key={sub.id}
-            entering={FadeInUp.delay(index * 50).duration(300)}
-          >
-            <TouchableOpacity 
-              style={styles.subscriptionCard}
-              activeOpacity={0.7}
-              onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            >
-              <View style={styles.subIcon}>
-                <Text style={styles.subEmoji}>{sub.icon}</Text>
-              </View>
-              <View style={styles.subInfo}>
-                <Text style={styles.subName}>{sub.name}</Text>
-                <Text style={styles.subNext}>Next: {sub.nextBill}</Text>
-              </View>
-              <View style={styles.subAmount}>
-                <Text style={styles.subPrice}>${sub.amount}</Text>
-                <Text style={styles.subPeriod}>/mo</Text>
-              </View>
-              {sub.status === 'review' && (
-                <View style={styles.reviewBadge}>
-                  <Text style={styles.reviewText}>Review</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
-      </View>
-
-      {/* Cancel Assistance */}
-      <TouchableOpacity 
-        style={styles.cancelAssist}
-        activeOpacity={0.7}
-        onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-      >
-        <Text style={styles.cancelIcon}>✉️</Text>
-        <View style={styles.cancelInfo}>
-          <Text style={styles.cancelTitle}>Need to cancel a subscription?</Text>
-          <Text style={styles.cancelSubtitle}>AI-powered cancellation letter generator</Text>
-        </View>
-        <Text style={styles.cancelChevron}>›</Text>
-      </TouchableOpacity>
-    </Animated.View>
+  const renderMaintenanceTab = () => (
+    <MaintenanceSection
+      onAddPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        // TODO: Open add maintenance modal
+      }}
+      onItemPress={(task) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // TODO: Open task detail modal
+      }}
+    />
   );
 
   return (
@@ -266,8 +189,20 @@ export default function HomeView() {
       >
         {activeTab === 'dashboard' && renderDashboardTab()}
         {activeTab === 'inventory' && renderInventoryTab()}
-        {activeTab === 'bills' && renderBillsTab()}
+        {activeTab === 'subscriptions' && renderSubscriptionsTab()}
+        {activeTab === 'vendors' && renderVendorsTab()}
+        {activeTab === 'maintenance' && renderMaintenanceTab()}
       </ScrollView>
+
+      {/* Modals */}
+      <AddInventoryModal 
+        visible={showAddInventory} 
+        onClose={() => setShowAddInventory(false)} 
+      />
+      <AddSubscriptionModal 
+        visible={showAddSubscription} 
+        onClose={() => setShowAddSubscription(false)} 
+      />
     </View>
   );
 }

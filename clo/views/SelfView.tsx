@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { CircleTabBar, QuickAction, ItemCard, SectionHeader } from '../components/shared';
+import { ItemList } from '../components/items';
 
 const ACCENT = '#6366f1';
 
@@ -69,8 +70,12 @@ export default function SelfView() {
         </View>
       </View>
 
+      {/* Database Items */}
+      <SectionHeader title="Your Items" subtitle="From all your devices" />
+      <ItemList circleContext="SELF" showCompleted={false} />
+
       {/* Tasks */}
-      <SectionHeader title="Today's Tasks" subtitle={`${tasks.filter(t => !t.done).length} remaining`} />
+      <SectionHeader title="Sample Tasks" subtitle={`${tasks.filter(t => !t.done).length} remaining`} />
       <View style={styles.taskList}>
         {tasks.map((task, index) => (
           <ItemCard

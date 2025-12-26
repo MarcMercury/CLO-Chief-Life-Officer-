@@ -78,23 +78,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
         },
+        emailRedirectTo: typeof window !== 'undefined' 
+          ? `${window.location.origin}/auth/callback`
+          : 'clo://auth/callback',
       },
     });
-    return { error };
+    
+    // Check if user was created but needs email confirmation
+    if (!error && data?.user && !data.session) {
+      // User created but email confirmation required
+      console.log('User created, email confirmation required');
+    }
+    
+    return { error, data };
   };
 
   const signInWithGoogle = async () => {
+    // Determine redirect URL based on platform (web vs native)
+    const redirectUrl = typeof window !== 'undefined' 
+      ? `${window.location.origin}/auth/callback`
+      : 'clo://auth/callback';
+      
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'clo://auth/callback',
+        redirectTo: redirectUrl,
+        skipBrowserRedirect: false,
       },
     });
     return { error };

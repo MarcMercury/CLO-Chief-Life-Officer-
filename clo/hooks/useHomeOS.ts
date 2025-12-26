@@ -1,0 +1,314 @@
+/**
+ * useHomeOS Hooks
+ * 
+ * React Query hooks for the CHO (Chief Household Officer) Dashboard.
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
+import {
+  getInventoryItems,
+  getInventoryItem,
+  createInventoryItem,
+  updateInventoryItem,
+  deleteInventoryItem,
+  getSubscriptions,
+  createSubscription,
+  updateSubscription,
+  cancelSubscription,
+  getVendors,
+  searchVendors,
+  createVendor,
+  updateVendor,
+  getServiceLogs,
+  createServiceLog,
+  getMaintenanceSchedules,
+  createMaintenanceSchedule,
+  completeMaintenanceTask,
+  getHomeAlerts,
+  getHomeStats,
+} from '@/services/homeosService';
+import {
+  CreateInventoryItemInput,
+  CreateSubscriptionInput,
+  CreateVendorInput,
+  CreateServiceLogInput,
+  CreateMaintenanceScheduleInput,
+} from '@/types/homeos';
+
+// ============================================
+// INVENTORY HOOKS
+// ============================================
+
+export function useInventory() {
+  return useQuery({
+    queryKey: ['inventory'],
+    queryFn: getInventoryItems,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+export function useInventoryItem(id: string) {
+  return useQuery({
+    queryKey: ['inventory', id],
+    queryFn: () => getInventoryItem(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateInventoryItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateInventoryItemInput) => createInventoryItem(input),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useUpdateInventoryItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<CreateInventoryItemInput> }) =>
+      updateInventoryItem(id, updates),
+    onSuccess: (_, variables) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory', variables.id] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useDeleteInventoryItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteInventoryItem(id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+// ============================================
+// SUBSCRIPTION HOOKS
+// ============================================
+
+export function useSubscriptions() {
+  return useQuery({
+    queryKey: ['subscriptions'],
+    queryFn: getSubscriptions,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useCreateSubscription() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateSubscriptionInput) => createSubscription(input),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
+      queryClient.invalidateQueries({ queryKey: ['homeAlerts'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useUpdateSubscription() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<CreateSubscriptionInput & { status?: string; importance?: string }> }) =>
+      updateSubscription(id, updates),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useCancelSubscription() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => cancelSubscription(id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+// ============================================
+// VENDOR HOOKS
+// ============================================
+
+export function useVendors() {
+  return useQuery({
+    queryKey: ['vendors'],
+    queryFn: getVendors,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useSearchVendors(searchTerm: string) {
+  return useQuery({
+    queryKey: ['vendors', 'search', searchTerm],
+    queryFn: () => searchVendors(searchTerm),
+    enabled: searchTerm.length >= 2,
+    staleTime: 1000 * 30, // 30 seconds
+  });
+}
+
+export function useCreateVendor() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateVendorInput) => createVendor(input),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useUpdateVendor() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<CreateVendorInput> }) =>
+      updateVendor(id, updates),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+// ============================================
+// SERVICE LOG HOOKS
+// ============================================
+
+export function useServiceLogs(vendorId?: string) {
+  return useQuery({
+    queryKey: ['serviceLogs', vendorId],
+    queryFn: () => getServiceLogs(vendorId),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useCreateServiceLog() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateServiceLogInput) => createServiceLog(input),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['serviceLogs'] });
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+// ============================================
+// MAINTENANCE HOOKS
+// ============================================
+
+export function useMaintenanceSchedules() {
+  return useQuery({
+    queryKey: ['maintenance'],
+    queryFn: getMaintenanceSchedules,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useCreateMaintenanceSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateMaintenanceScheduleInput) => createMaintenanceSchedule(input),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useCompleteMaintenanceTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => completeMaintenanceTask(id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
+      queryClient.invalidateQueries({ queryKey: ['homeAlerts'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+// ============================================
+// ALERTS & STATS HOOKS
+// ============================================
+
+export function useHomeAlerts() {
+  return useQuery({
+    queryKey: ['homeAlerts'],
+    queryFn: getHomeAlerts,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+export function useHomeStats() {
+  return useQuery({
+    queryKey: ['homeStats'],
+    queryFn: getHomeStats,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}

@@ -55,6 +55,9 @@ export interface CapsuleWithPartner extends RelationshipCapsule {
     avatar_url: string | null;
   } | null;
   relationship_health: RelationshipHealth | null;
+  // Convenience aliases for accessing invite info
+  invite_email?: string | null; // alias for user_b_email
+  partner_id?: string | null; // alias for user_b_id
 }
 
 export interface RelationshipHealth {

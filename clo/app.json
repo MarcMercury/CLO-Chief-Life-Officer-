@@ -52,7 +52,8 @@
         {
           "faceIDPermission": "Allow CLO to use Face ID to secure your personal data."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { CircleTabBar, QuickAction, SectionHeader } from '../components/shared';
+import { ItemList } from '../components/items';
+import { useCapsules } from '../hooks/useCapsules';
+import CapsuleCard from '../components/relationships/CapsuleCard';
+import InvitePartnerModal from '../components/relationships/InvitePartnerModal';
 
 const ACCENT = '#e17055';
 
@@ -12,14 +17,7 @@ const TABS = [
   { key: 'calendar', label: 'Calendar', icon: '📅' },
 ];
 
-// Mock data
-const mockCapsules = [
-  { id: '1', name: 'Sarah', relationship: 'Partner', health: 'thriving', lastContact: '2 hours ago', unread: 2 },
-  { id: '2', name: 'Mom', relationship: 'Family', health: 'healthy', lastContact: '3 days ago', unread: 0 },
-  { id: '3', name: 'Alex', relationship: 'Friend', health: 'needs_attention', lastContact: '2 weeks ago', unread: 0 },
-  { id: '4', name: 'David', relationship: 'Colleague', health: 'healthy', lastContact: '5 days ago', unread: 1 },
-];
-
+// Mock data for tabs that don't use real data yet
 const mockRecentInteractions = [
   { id: '1', person: 'Sarah', type: 'message', content: 'Sent a good morning message', time: '2 hours ago' },
   { id: '2', person: 'Mom', type: 'call', content: 'Weekly check-in call', time: '3 days ago' },
@@ -42,89 +40,92 @@ const getHealthColor = (health: string) => {
   }
 };
 
-const getHealthLabel = (health: string) => {
-  switch (health) {
-    case 'thriving': return 'Thriving';
-    case 'healthy': return 'Healthy';
-    case 'needs_attention': return 'Needs attention';
-    case 'at_risk': return 'At risk';
-    default: return 'Unknown';
-  }
-};
-
 export default function RelationshipsView() {
   const [activeTab, setActiveTab] = useState('capsules');
+  const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
+  const router = useRouter();
+  
+  const { data: capsules, isLoading: capsulesLoading } = useCapsules();
+
+  const handleOpenCapsule = (capsuleId: string) => {
+    router.push(`/capsule/${capsuleId}`);
+  };
 
   const renderCapsulesTab = () => (
     <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
       {/* Quick Actions */}
       <View style={styles.quickActions}>
-        <QuickAction icon="➕" label="New Capsule" accentColor={ACCENT} onPress={() => {}} />
+        <QuickAction icon="➕" label="New Capsule" accentColor={ACCENT} onPress={() => setIsInviteModalVisible(true)} />
         <QuickAction icon="💬" label="Quick Log" accentColor={ACCENT} onPress={() => {}} />
         <QuickAction icon="🎁" label="Gift Ideas" accentColor={ACCENT} onPress={() => {}} />
       </View>
+
+      {/* Your Items */}
+      <SectionHeader title="Your Items" subtitle="Relationship tasks & notes" />
+      <ItemList circleContext="RELATIONSHIPS" showCompleted={false} maxItems={5} />
 
       {/* Health Summary */}
       <View style={styles.healthSummary}>
         <View style={styles.healthItem}>
           <View style={[styles.healthDotLarge, { backgroundColor: '#22c55e' }]} />
-          <Text style={styles.healthCount}>{mockCapsules.filter(c => c.health === 'thriving').length}</Text>
+          <Text style={styles.healthCount}>
+            {capsules?.filter(c => c.relationship_health?.status === 'thriving').length || 0}
+          </Text>
         </View>
         <View style={styles.healthItem}>
           <View style={[styles.healthDotLarge, { backgroundColor: '#84cc16' }]} />
-          <Text style={styles.healthCount}>{mockCapsules.filter(c => c.health === 'healthy').length}</Text>
+          <Text style={styles.healthCount}>
+            {capsules?.filter(c => c.relationship_health?.status === 'healthy').length || 0}
+          </Text>
         </View>
         <View style={styles.healthItem}>
           <View style={[styles.healthDotLarge, { backgroundColor: '#eab308' }]} />
-          <Text style={styles.healthCount}>{mockCapsules.filter(c => c.health === 'needs_attention').length}</Text>
+          <Text style={styles.healthCount}>
+            {capsules?.filter(c => 
+              c.relationship_health?.status === 'needs_attention' || 
+              c.relationship_health?.status === 'at_risk'
+            ).length || 0}
+          </Text>
         </View>
       </View>
 
       {/* Capsules List */}
       <SectionHeader 
         title="Your Capsules" 
-        subtitle={`${mockCapsules.length} connections`}
+        subtitle={`${capsules?.length || 0} connections`}
         rightContent={<Text style={styles.sortLabel}>Sort ▼</Text>}
       />
-      <View style={styles.capsuleList}>
-        {mockCapsules.map((capsule, index) => (
-          <Animated.View 
-            key={capsule.id}
-            entering={FadeInUp.delay(index * 50).duration(300)}
+      
+      {capsulesLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={ACCENT} />
+        </View>
+      ) : capsules && capsules.length > 0 ? (
+        <View style={styles.capsuleList}>
+          {capsules.map((capsule, index) => (
+            <CapsuleCard
+              key={capsule.id}
+              capsule={capsule}
+              index={index}
+              onPress={() => handleOpenCapsule(capsule.id)}
+            />
+          ))}
+        </View>
+      ) : (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>💫</Text>
+          <Text style={styles.emptyTitle}>No capsules yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Create your first relationship capsule to start tracking meaningful connections
+          </Text>
+          <TouchableOpacity 
+            style={styles.createButton}
+            onPress={() => setIsInviteModalVisible(true)}
           >
-            <TouchableOpacity 
-              style={styles.capsuleCard} 
-              activeOpacity={0.7}
-              onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            >
-              <View style={styles.avatarContainer}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{capsule.name[0]}</Text>
-                </View>
-                <View style={[styles.healthDot, { backgroundColor: getHealthColor(capsule.health) }]} />
-              </View>
-              
-              <View style={styles.capsuleInfo}>
-                <View style={styles.capsuleHeader}>
-                  <Text style={styles.capsuleName}>{capsule.name}</Text>
-                  {capsule.unread > 0 && (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadText}>{capsule.unread}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.capsuleRelation}>{capsule.relationship}</Text>
-                <Text style={styles.healthStatus}>{getHealthLabel(capsule.health)}</Text>
-              </View>
-              
-              <View style={styles.capsuleRight}>
-                <Text style={styles.lastContact}>{capsule.lastContact}</Text>
-                <Text style={styles.chevron}>›</Text>
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
-      </View>
+            <Text style={styles.createButtonText}>Create Capsule</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 
@@ -222,6 +223,12 @@ export default function RelationshipsView() {
         {activeTab === 'recent' && renderRecentTab()}
         {activeTab === 'calendar' && renderCalendarTab()}
       </ScrollView>
+
+      {/* Invite Modal */}
+      <InvitePartnerModal
+        visible={isInviteModalVisible}
+        onClose={() => setIsInviteModalVisible(false)}
+      />
     </View>
   );
 }
@@ -463,5 +470,41 @@ const styles = StyleSheet.create({
   daysLabel: {
     fontSize: 11,
     color: '#666',
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: '#E0E0E0',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  createButton: {
+    backgroundColor: ACCENT,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  createButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#fff',
   },
 });

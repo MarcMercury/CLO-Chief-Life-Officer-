@@ -8,7 +8,7 @@ import Animated, {
   withSequence,
   runOnJS,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import haptics from '@/lib/haptics';
 import { useUIStore, ActiveCircle } from '../../store/uiStore';
 
 const SWIPE_THRESHOLD = 50;
@@ -22,7 +22,7 @@ export default function OrbitalControl() {
   const translateY = useSharedValue(0);
   
   const triggerHaptic = () => {
-    Haptics.selectionAsync();
+    haptics.selection();
   };
   
   const navigateTo = (circle: ActiveCircle) => {
