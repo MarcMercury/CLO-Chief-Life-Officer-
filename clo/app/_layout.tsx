@@ -1,3 +1,4 @@
+import '../global.css';
 import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, SplashScreen } from 'expo-router';
