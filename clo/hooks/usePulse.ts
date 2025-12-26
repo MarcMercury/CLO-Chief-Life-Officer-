@@ -108,10 +108,48 @@ export function usePulse(): UsePulseReturn {
     state.sources.homeStatus !== 'mock' && state.sources.homeStatus !== null ||
     state.sources.relationshipContext !== 'mock' && state.sources.relationshipContext !== null;
 
-  // Auto-sync on mount
+  // Load cached data immediately, don't auto-sync on every mount
+  // User can trigger manual sync with the button
   useEffect(() => {
-    triggerSync();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Set initial mock data immediately for fast rendering
+    if (!state.data && !state.isSyncing) {
+      setState(prev => ({
+        ...prev,
+        data: {
+          bioMetrics: {
+            recoveryScore: 85,
+            sleepHours: 7.5,
+            mood: 'good',
+            heartRateResting: 58,
+            stepsToday: 6420,
+          },
+          homeStatus: {
+            temperature: 72,
+            humidity: 45,
+            condition: 'Clear',
+            securityStatus: 'secure',
+            devices: [],
+          },
+          relationshipContext: {
+            nextMeeting: null,
+            overdueContact: null,
+            upcomingAnniversary: null,
+          },
+          syncedAt: new Date().toISOString(),
+          sources: {
+            bioMetrics: 'mock',
+            homeStatus: 'mock',
+            relationshipContext: 'mock',
+          },
+        },
+        lastSyncedAt: new Date().toISOString(),
+        sources: {
+          bioMetrics: 'mock',
+          homeStatus: 'mock',
+          relationshipContext: 'mock',
+        },
+      }));
+    }
   }, []);
 
   return {

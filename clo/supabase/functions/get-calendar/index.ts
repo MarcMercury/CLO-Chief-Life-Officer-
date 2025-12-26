@@ -1,3 +1,4 @@
+/// <reference path="../deno.d.ts" />
 // Google Calendar Integration Edge Function
 // Fetches upcoming events from user's Google Calendar
 
@@ -155,7 +156,10 @@ serve(async (req) => {
         )
       }
 
-      const tokenData = await tokenResponse.json()
+      const tokenData = await tokenResponse.json() as { 
+        access_token: string; 
+        expires_in: number 
+      }
       accessToken = tokenData.access_token
 
       // Update stored token
@@ -195,17 +199,27 @@ serve(async (req) => {
       )
     }
 
-    const calendarData = await calendarResponse.json()
+    const calendarData = await calendarResponse.json() as { 
+      items?: Array<{
+        id: string;
+        summary?: string;
+        description?: string;
+        start: { dateTime?: string; date?: string };
+        end: { dateTime?: string; date?: string };
+        location?: string;
+        attendees?: Array<{ email: string }>;
+      }> 
+    }
 
     // Transform events
-    const events: CalendarEvent[] = (calendarData.items || []).map((event: any) => ({
+    const events: CalendarEvent[] = (calendarData.items || []).map((event) => ({
       id: event.id,
       title: event.summary || 'Untitled Event',
       description: event.description || null,
-      startTime: event.start.dateTime || event.start.date,
-      endTime: event.end.dateTime || event.end.date,
+      startTime: event.start.dateTime || event.start.date || new Date().toISOString(),
+      endTime: event.end.dateTime || event.end.date || new Date().toISOString(),
       location: event.location || null,
-      attendees: (event.attendees || []).map((a: any) => a.email),
+      attendees: (event.attendees || []).map((a) => a.email),
       isAllDay: !!event.start.date,
       calendarName: 'Primary'
     }))
@@ -237,7 +251,8 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     console.error('Calendar function error:', error)
     return new Response(
       JSON.stringify({ success: false, error: error.message }),

@@ -1,3 +1,4 @@
+/// <reference path="../deno.d.ts" />
 // Follow this setup guide to integrate the Deno language server with your editor:
 // https://deno.land/manual/getting_started/setup_your_environment
 // This enables autocomplete, go to definition, etc.
@@ -149,7 +150,14 @@ serve(async (req) => {
       )
     }
 
-    const owmData = await owmResponse.json()
+    const owmData = await owmResponse.json() as {
+      main: { temp: number; feels_like: number; humidity: number };
+      weather: Array<{ main: string; icon: string; description: string }>;
+      name: string;
+      sys: { sunrise: number; sunset: number };
+      wind: { speed: number };
+      visibility?: number;
+    }
 
     // Transform response
     const weatherData = {
@@ -195,7 +203,8 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     console.error('Weather function error:', error)
     return new Response(
       JSON.stringify({ success: false, error: error.message }),

@@ -1,3 +1,4 @@
+/// <reference path="../deno.d.ts" />
 // Supabase Edge Function: generate-cancellation
 // Uses OpenAI GPT-4o to generate formal subscription cancellation letters
 
@@ -90,7 +91,7 @@ serve(async (req) => {
       throw new Error(`OpenAI API error: ${error}`);
     }
 
-    const openaiData = await openaiResponse.json();
+    const openaiData = await openaiResponse.json() as { choices: Array<{ message: { content: string } }> };
     const cancellationData: CancellationResponse = JSON.parse(
       openaiData.choices[0].message.content
     );
@@ -98,7 +99,8 @@ serve(async (req) => {
     return new Response(JSON.stringify(cancellationData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error;
     console.error("Error generating cancellation letter:", error);
     return new Response(
       JSON.stringify({

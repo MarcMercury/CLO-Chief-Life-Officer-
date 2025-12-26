@@ -1,3 +1,4 @@
+/// <reference path="../deno.d.ts" />
 // Supabase Edge Function: enrich-inventory-item
 // Uses OpenAI GPT-4o to enrich inventory items with warranty info, manuals, etc.
 
@@ -94,7 +95,7 @@ serve(async (req) => {
       throw new Error(`OpenAI API error: ${error}`);
     }
 
-    const openaiData = await openaiResponse.json();
+    const openaiData = await openaiResponse.json() as { choices: Array<{ message: { content: string } }> };
     const enrichmentData: EnrichmentResponse = JSON.parse(
       openaiData.choices[0].message.content
     );
@@ -102,7 +103,8 @@ serve(async (req) => {
     return new Response(JSON.stringify(enrichmentData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error;
     console.error("Error enriching inventory item:", error);
     return new Response(
       JSON.stringify({

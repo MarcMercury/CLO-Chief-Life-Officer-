@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean;
   isLocked: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null }>;
+  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null; data?: { user: User | null; session: Session | null } }>;
   signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   unlockApp: () => Promise<boolean>;

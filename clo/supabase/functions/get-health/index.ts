@@ -1,3 +1,4 @@
+/// <reference path="../deno.d.ts" />
 // Oura Ring Integration Edge Function
 // Fetches sleep, readiness, and activity data from Oura API
 
@@ -146,10 +147,20 @@ serve(async (req) => {
       )
     }
 
-    const readinessData = await readinessResponse.json()
-    const sleepData = await sleepResponse.json()
-    const activityData = await activityResponse.json()
-    const hrData = hrResponse.ok ? await hrResponse.json() : { data: [] }
+    interface OuraDataResponse {
+      data?: Array<{
+        score?: number;
+        contributors?: { total_sleep?: number; hrv_balance?: number };
+        steps?: number;
+        active_calories?: number;
+        bpm?: number;
+      }>;
+    }
+
+    const readinessData = await readinessResponse.json() as OuraDataResponse
+    const sleepData = await sleepResponse.json() as OuraDataResponse
+    const activityData = await activityResponse.json() as OuraDataResponse
+    const hrData: OuraDataResponse = hrResponse.ok ? await hrResponse.json() as OuraDataResponse : { data: [] }
 
     // Extract latest data
     const latestReadiness = readinessData.data?.[0]
@@ -159,7 +170,7 @@ serve(async (req) => {
     // Calculate average resting heart rate from overnight readings
     const hrReadings = hrData.data || []
     const avgHr = hrReadings.length > 0 
-      ? Math.round(hrReadings.reduce((sum: number, r: any) => sum + r.bpm, 0) / hrReadings.length)
+      ? Math.round(hrReadings.reduce((sum, r) => sum + (r.bpm || 0), 0) / hrReadings.length)
       : 60
 
     const healthData: HealthData = {
@@ -202,7 +213,8 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     console.error('Health function error:', error)
     return new Response(
       JSON.stringify({ success: false, error: error.message }),

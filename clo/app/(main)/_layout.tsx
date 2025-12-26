@@ -1,34 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, memo } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { Slot } from 'expo-router';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useUIStore } from '../../store/uiStore';
 import OrbitalControl from '../../components/navigation/OrbitalControl';
 import CreateItemModal from '../../components/modals/CreateItemModal';
 
-export default function MainLayout() {
+function MainLayout() {
   const { themeColors } = useUIStore();
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-  
-  // Shared values for animated background
-  const backgroundColor = useSharedValue(themeColors.background);
-  
-  useEffect(() => {
-    backgroundColor.value = withTiming(themeColors.background, {
-      duration: 500,
-      easing: Easing.inOut(Easing.ease),
-    });
-  }, [themeColors.background]);
-  
-  const animatedContainerStyle = useAnimatedStyle(() => ({
-    backgroundColor: backgroundColor.value,
-  }));
 
   const handleOpenCreateModal = () => {
     Haptics.selectionAsync();
@@ -36,7 +16,7 @@ export default function MainLayout() {
   };
   
   return (
-    <Animated.View style={[styles.container, animatedContainerStyle]}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={styles.content}>
         <Slot />
       </View>
@@ -56,9 +36,11 @@ export default function MainLayout() {
         visible={isCreateModalVisible}
         onClose={() => setIsCreateModalVisible(false)}
       />
-    </Animated.View>
+    </View>
   );
 }
+
+export default memo(MainLayout);
 
 const styles = StyleSheet.create({
   container: {
