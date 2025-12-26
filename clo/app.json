@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "CLO - Chief Life Officer",
+    "slug": "clo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "scheme": "clo",
+    "owner": "marcmercury",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/134e7861-725f-4076-b1dd-3b374c7cf69f"
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#121212"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.clo.sanctuary",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "CLO uses Face ID to secure your personal data and provide quick access to your Sanctuary."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#121212"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.clo.sanctuary",
+      "versionCode": 1,
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow CLO to use Face ID to secure your personal data."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "134e7861-725f-4076-b1dd-3b374c7cf69f"
+      }
+    }
+  }
+}
