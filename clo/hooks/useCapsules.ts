@@ -40,27 +40,22 @@ export function useCapsules() {
       if (!user) throw new Error('Not authenticated');
 
       // Fetch capsules where user is either user_a or user_b
+      // Simple select without FK joins to avoid 409 conflicts
       const { data, error } = await supabase
         .from('relationship_capsules')
-        .select(`
-          *,
-          user_a:profiles!relationship_capsules_user_a_id_fkey(id, full_name, avatar_url),
-          user_b:profiles!relationship_capsules_user_b_id_fkey(id, full_name, avatar_url)
-        `)
+        .select('*')
         .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`)
         .order('updated_at', { ascending: false });
 
       if (error) throw new Error(error.message);
 
       // Transform to include partner info and health
+      // Note: Without FK joins, we use invite_email for pending invites
       return (data || []).map((capsule: any) => {
-        const isUserA = capsule.user_a_id === user.id;
-        const partnerProfile = isUserA ? capsule.user_b : capsule.user_a;
-        
         // Calculate health based on last_deep_connect and sentiment
         const daysSinceConnect = capsule.last_deep_connect
           ? Math.floor((Date.now() - new Date(capsule.last_deep_connect).getTime()) / (1000 * 60 * 60 * 24))
-          : 999;
+          : 7; // Default to 7 days for new nests
         
         const health: RelationshipHealth = {
           score: Math.max(0, 100 - daysSinceConnect * 5),
@@ -73,11 +68,12 @@ export function useCapsules() {
 
         return {
           ...capsule,
-          partner: partnerProfile ? {
-            id: partnerProfile.id,
-            display_name: partnerProfile.full_name || 'Unknown',
-            avatar_url: partnerProfile.avatar_url,
+          partner: capsule.user_b_id ? {
+            id: capsule.user_b_id,
+            display_name: capsule.invite_email || 'Partner',
+            avatar_url: null,
           } : null,
+          invite_email: capsule.invite_email,
           relationship_health: health,
         };
       });
@@ -94,11 +90,7 @@ export function useCapsule(capsuleId: string) {
 
       const { data, error } = await supabase
         .from('relationship_capsules')
-        .select(`
-          *,
-          user_a:profiles!relationship_capsules_user_a_id_fkey(id, full_name, avatar_url),
-          user_b:profiles!relationship_capsules_user_b_id_fkey(id, full_name, avatar_url)
-        `)
+        .select('*')
         .eq('id', capsuleId)
         .single();
 
@@ -106,12 +98,10 @@ export function useCapsule(capsuleId: string) {
       if (!data) return null;
 
       const capsule = data as any;
-      const isUserA = capsule.user_a_id === user.id;
-      const partnerProfile = isUserA ? capsule.user_b : capsule.user_a;
 
       const daysSinceConnect = capsule.last_deep_connect
         ? Math.floor((Date.now() - new Date(capsule.last_deep_connect).getTime()) / (1000 * 60 * 60 * 24))
-        : 999;
+        : 7;
 
       const health: RelationshipHealth = {
         score: Math.max(0, 100 - daysSinceConnect * 5),
@@ -124,11 +114,12 @@ export function useCapsule(capsuleId: string) {
 
       return {
         ...capsule,
-        partner: partnerProfile ? {
-          id: partnerProfile.id,
-          display_name: partnerProfile.full_name || 'Unknown',
-          avatar_url: partnerProfile.avatar_url,
+        partner: capsule.user_b_id ? {
+          id: capsule.user_b_id,
+          display_name: capsule.invite_email || 'Partner',
+          avatar_url: null,
         } : null,
+        invite_email: capsule.invite_email,
         relationship_health: health,
       };
     },
@@ -148,21 +139,22 @@ export function useCreateCapsule() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const inviteToken = crypto.randomUUID();
-
+      // Don't pass invite_token - let the database generate it via default
       const { data, error } = await (supabase
         .from('relationship_capsules') as any)
         .insert({
           user_a_id: user.id,
           invite_email: input.partner_email,
-          invite_token: inviteToken,
           status: 'PENDING',
           tier: 'STANDARD',
         })
-        .select()
+        .select('*')
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Capsule creation error:', error);
+        throw new Error(error.message);
+      }
       return data as RelationshipCapsule;
     },
     onSuccess: () => {

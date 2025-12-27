@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import PulseCheckIn from './PulseCheckIn';
 import PlanModule from './PlanModule';
@@ -16,6 +17,17 @@ import DecideModule from './DecideModule';
 import ResolveModule from './ResolveModule';
 import VaultModule from './VaultModule';
 import SignalChat from './SignalChat';
+import {
+  useCapsuleMessages,
+  useSendMessage,
+  useSharedTasks,
+  useCreateSharedTask,
+  useToggleSharedTask,
+  useEmotionalLogs,
+  useLogEmotion,
+  useOpenLoops,
+  useCreateOpenLoop,
+} from '@/hooks/useCapsules';
 
 const { width } = Dimensions.get('window');
 
@@ -47,14 +59,43 @@ export default function CapsuleView({
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   
-  // Local state for demo data
-  const [planItems, setPlanItems] = useState<any[]>([]);
-  const [decideItems, setDecideItems] = useState<any[]>([]);
-  const [resolveItems, setResolveItems] = useState<any[]>([]);
+  // Real database hooks - data persists!
+  const { data: messages = [], isLoading: messagesLoading } = useCapsuleMessages(capsuleId || '');
+  const { mutate: sendMessage } = useSendMessage();
+  
+  const { data: sharedTasks = [], isLoading: tasksLoading } = useSharedTasks(capsuleId || '');
+  const { mutate: createTask } = useCreateSharedTask();
+  const { mutate: toggleTask } = useToggleSharedTask();
+  
+  const { data: emotionalLogs = [] } = useEmotionalLogs(capsuleId || '');
+  const { mutate: logEmotion } = useLogEmotion();
+  
+  const { data: openLoops = [] } = useOpenLoops(capsuleId || '');
+  const { mutate: createLoop } = useCreateOpenLoop();
+  
+  // Derive plan items from shared tasks with status 'planning'
+  const planItems = useMemo(() => 
+    sharedTasks.filter((t: any) => t.status === 'planning' || !t.status),
+    [sharedTasks]
+  );
+  
+  // Derive decide items from shared tasks with status 'pending'
+  const decideItems = useMemo(() => 
+    sharedTasks.filter((t: any) => t.status === 'pending'),
+    [sharedTasks]
+  );
+  
+  // Local state for vault (still needs migration table)
   const [vaultItems, setVaultItems] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [hasPulseToday, setHasPulseToday] = useState(false);
   const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
+  
+  // Check if pulse done today
+  const hasPulseToday = useMemo(() => {
+    const today = new Date().toDateString();
+    return emotionalLogs.some((log: any) => 
+      new Date(log.logged_at || log.created_at).toDateString() === today
+    );
+  }, [emotionalLogs]);
 
   // If no capsule exists, show onboarding
   if (!capsuleId && !capsule) {
@@ -181,8 +222,14 @@ export default function CapsuleView({
         return (
           <PulseCheckIn
             onSubmit={(moods) => {
-              console.log('Pulse submitted:', moods);
-              setHasPulseToday(true);
+              // Persist to database!
+              if (capsuleId) {
+                logEmotion({
+                  capsule_id: capsuleId,
+                  mood_self: moods.self || '😐',
+                  mood_relationship: moods.us, // 'us' is the relationship mood
+                });
+              }
               setActiveZone('home');
             }}
           />
@@ -190,40 +237,29 @@ export default function CapsuleView({
       case 'plan':
         return (
           <PlanModule
-            items={planItems}
+            items={planItems as any}
             onCreateItem={(title: string, description?: string, category?: string) => {
-              setPlanItems([...planItems, { 
-                id: Date.now().toString(), 
-                title, 
-                description,
-                category: category || 'general', 
-                vote_a: null,
-                vote_b: null,
-                status: 'planning',
-                created_at: new Date().toISOString(),
-              }]);
+              // Persist to database as shared task!
+              if (capsuleId) {
+                createTask({
+                  capsule_id: capsuleId,
+                  title,
+                  description,
+                });
+              }
             }}
             onVote={(id: string, vote: boolean) => {
-              setPlanItems(planItems.map((item: any) => 
-                item.id === id 
-                  ? { ...item, vote_a: vote }
-                  : item
-              ));
+              // TODO: Add voting to shared_tasks table
+              console.log('Vote:', id, vote);
             }}
             onPromote={(id: string) => {
-              const item = planItems.find((p: any) => p.id === id);
-              if (item) {
-                setDecideItems([...decideItems, {
-                  id: Date.now().toString(),
-                  title: item.title,
-                  description: item.description,
-                  status: 'pending',
-                  confirmed_by_initiator: false,
-                  confirmed_by_partner: false,
-                  promoted_from_plan_id: id,
-                  created_at: new Date().toISOString(),
-                }]);
-                setPlanItems(planItems.filter((p: any) => p.id !== id));
+              // Update task status to 'pending' (moves to Decide)
+              if (capsuleId) {
+                toggleTask({
+                  taskId: id,
+                  capsuleId,
+                  isCompleted: false, // Not completed, just promoted
+                });
               }
             }}
             isUserA={true}
@@ -232,31 +268,30 @@ export default function CapsuleView({
       case 'decide':
         return (
           <DecideModule
-            items={decideItems}
+            items={decideItems as any}
             onConfirm={(id: string) => {
-              setDecideItems(decideItems.map((item: any) =>
-                item.id === id
-                  ? { ...item, confirmed_by_initiator: true }
-                  : item
-              ));
+              // Mark task as confirmed by current user
+              console.log('Confirm decision:', id);
             }}
             onComplete={(id: string) => {
-              setDecideItems(decideItems.map((item: any) =>
-                item.id === id
-                  ? { ...item, status: 'completed' }
-                  : item
-              ));
+              // Mark task as completed in database!
+              if (capsuleId) {
+                toggleTask({
+                  taskId: id,
+                  capsuleId,
+                  isCompleted: true,
+                });
+              }
             }}
             onAddItem={(title: string, description: string) => {
-              setDecideItems([...decideItems, {
-                id: Date.now().toString(),
-                title,
-                description,
-                status: 'pending',
-                confirmed_by_initiator: true,
-                confirmed_by_partner: false,
-                created_at: new Date().toISOString(),
-              }]);
+              // Add directly to pending (Decide zone)
+              if (capsuleId) {
+                createTask({
+                  capsule_id: capsuleId,
+                  title,
+                  description,
+                });
+              }
             }}
             currentUserId={userId}
           />
@@ -264,32 +299,23 @@ export default function CapsuleView({
       case 'resolve':
         return (
           <ResolveModule
-            items={resolveItems}
+            items={openLoops as any[]}
             onCreateIssue={(issue: string) => {
-              setResolveItems([...resolveItems, {
-                id: Date.now().toString(),
-                issue,
-                status: 'open',
-                initiator_id: userId,
-                created_at: new Date().toISOString(),
-              }]);
+              // Persist to database!
+              if (capsuleId) {
+                createLoop({
+                  capsule_id: capsuleId,
+                  title: issue,
+                } as any);
+              }
             }}
             onSubmitPerspective={(resolveId: string, feeling: string, need: string, willing: string, compromise: string) => {
-              setResolveItems(resolveItems.map((item: any) =>
-                item.id === resolveId
-                  ? { 
-                      ...item, 
-                      perspective_a: { feeling, need, willing, compromise }
-                    }
-                  : item
-              ));
+              // TODO: Add perspective update mutation
+              console.log('Perspective submitted:', { resolveId, feeling, need, willing, compromise });
             }}
             onAcceptCompromise={(id: string) => {
-              setResolveItems(resolveItems.map((item: any) =>
-                item.id === id
-                  ? { ...item, status: 'resolved', partner_accepted: true }
-                  : item
-              ));
+              // TODO: Add resolve mutation
+              console.log('Compromise accepted:', id);
             }}
             isUserA={true}
             userId={userId}
@@ -333,16 +359,23 @@ export default function CapsuleView({
       case 'chat':
         return (
           <SignalChat
-            messages={messages}
+            messages={messages.map((m: any) => ({
+              id: m.id,
+              sender_id: m.sender_id,
+              encrypted_content: m.encrypted_content,
+              created_at: m.created_at,
+            }))}
             onSendMessage={(text: string) => {
-              setMessages([...messages, {
-                id: Date.now().toString(),
-                text,
-                senderId: userId,
-                timestamp: new Date(),
-              }]);
+              // Persist to database!
+              if (capsuleId) {
+                sendMessage({
+                  capsule_id: capsuleId,
+                  content: text,
+                });
+              }
             }}
             currentUserId={userId}
+            loading={messagesLoading}
           />
         );
       default:

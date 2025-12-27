@@ -25,6 +25,7 @@ import { CircleType } from '@/types/database';
 interface CreateItemModalProps {
   visible: boolean;
   onClose: () => void;
+  defaultCircle?: CircleType;
 }
 
 type ItemType = 'TASK' | 'NOTE' | 'EVENT';
@@ -41,16 +42,21 @@ const CIRCLES: { circle: CircleType; icon: string; label: string; color: string 
   { circle: 'HOME', icon: '▲', label: 'Home', color: '#84a98c' },
 ];
 
-export default function CreateItemModal({ visible, onClose }: CreateItemModalProps) {
+export default function CreateItemModal({ visible, onClose, defaultCircle = 'SELF' }: CreateItemModalProps) {
   const [title, setTitle] = useState('');
   const [selectedType, setSelectedType] = useState<ItemType>('TASK');
-  const [selectedCircles, setSelectedCircles] = useState<CircleType[]>(['SELF']);
+  const [selectedCircles, setSelectedCircles] = useState<CircleType[]>([defaultCircle]);
   const inputRef = useRef<TextInput>(null);
   
   const { mutate: createItem, isPending } = useCreateItem();
   
   const translateY = useSharedValue(300);
   const opacity = useSharedValue(0);
+
+  // Reset circles when defaultCircle changes (e.g., opening from different views)
+  useEffect(() => {
+    setSelectedCircles([defaultCircle]);
+  }, [defaultCircle]);
 
   useEffect(() => {
     if (visible) {
@@ -110,7 +116,7 @@ export default function CreateItemModal({ visible, onClose }: CreateItemModalPro
           // Reset form
           setTitle('');
           setSelectedType('TASK');
-          setSelectedCircles(['SELF']);
+          setSelectedCircles([defaultCircle]);
           onClose();
         },
       }

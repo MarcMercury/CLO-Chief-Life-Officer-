@@ -69,12 +69,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, lastActiveTime]);
 
+  // Ensure profile exists when user changes
+  useEffect(() => {
+    if (user) {
+      ensureProfileExists(user);
+    }
+  }, [user]);
+
   const signInWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    // Ensure profile exists on sign in
+    if (!error && data?.user) {
+      await ensureProfileExists(data.user);
+    }
+    
     return { error };
+  };
+
+  // Ensure profile exists for authenticated user
+  const ensureProfileExists = async (user: User) => {
+    try {
+      // Check if profile already exists
+      const { data: existingProfile, error: selectError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle(); // Use maybeSingle to avoid error if not found
+
+      if (existingProfile) return; // Profile already exists
+
+      // Create profile from user metadata (only use columns that exist in table)
+      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          full_name: fullName,
+        });
+
+      if (error && error.code !== '23505') { // Ignore duplicate key errors
+        console.error('Failed to create profile:', error);
+      } else {
+        console.log('Profile created successfully for user:', user.id);
+      }
+    } catch (e) {
+      console.error('Error ensuring profile exists:', e);
+    }
   };
 
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
@@ -91,10 +135,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     
-    // Check if user was created but needs email confirmation
-    if (!error && data?.user && !data.session) {
-      // User created but email confirmation required
-      console.log('User created, email confirmation required');
+    // Create profile if user was created
+    if (!error && data?.user) {
+      await ensureProfileExists(data.user);
     }
     
     return { error, data };

@@ -3,35 +3,13 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { CircleTabBar, QuickAction, SectionHeader } from '../components/shared';
-import { ItemList } from '../components/items';
 import { useCapsules } from '../hooks/useCapsules';
-import CapsuleCard from '../components/relationships/CapsuleCard';
 import InvitePartnerModal from '../components/relationships/InvitePartnerModal';
 
-const ACCENT = '#e17055';
+const NEST_WARM = '#D4A574'; // Warm wood/straw color
 
-const TABS = [
-  { key: 'capsules', label: 'Capsules', icon: '💫' },
-  { key: 'recent', label: 'Recent', icon: '🕐' },
-  { key: 'calendar', label: 'Calendar', icon: '📅' },
-];
-
-// Mock data for tabs that don't use real data yet
-const mockRecentInteractions = [
-  { id: '1', person: 'Sarah', type: 'message', content: 'Sent a good morning message', time: '2 hours ago' },
-  { id: '2', person: 'Mom', type: 'call', content: 'Weekly check-in call', time: '3 days ago' },
-  { id: '3', person: 'David', type: 'task', content: 'Completed shared project', time: '5 days ago' },
-];
-
-const mockUpcoming = [
-  { id: '1', person: 'Sarah', event: 'Anniversary', date: 'Jan 15', daysAway: 20 },
-  { id: '2', person: 'Mom', event: 'Birthday', date: 'Feb 3', daysAway: 39 },
-  { id: '3', person: 'Alex', event: 'Coffee catch-up', date: 'Jan 2', daysAway: 7 },
-];
-
-const getHealthColor = (health: string) => {
-  switch (health) {
+const getHealthColor = (status: string) => {
+  switch (status) {
     case 'thriving': return '#22c55e';
     case 'healthy': return '#84cc16';
     case 'needs_attention': return '#eab308';
@@ -41,177 +19,27 @@ const getHealthColor = (health: string) => {
 };
 
 export default function RelationshipsView() {
-  const [activeTab, setActiveTab] = useState('capsules');
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
   const router = useRouter();
   
-  const { data: capsules, isLoading: capsulesLoading } = useCapsules();
+  const { data: nests, isLoading } = useCapsules();
 
-  const handleOpenCapsule = (capsuleId: string) => {
-    router.push(`/capsule/${capsuleId}`);
+  const handleOpenNest = (nestId: string) => {
+    router.push(`/capsule/${nestId}`);
   };
-
-  const renderCapsulesTab = () => (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <QuickAction icon="➕" label="New Capsule" accentColor={ACCENT} onPress={() => setIsInviteModalVisible(true)} />
-        <QuickAction icon="💬" label="Quick Log" accentColor={ACCENT} onPress={() => {}} />
-        <QuickAction icon="🎁" label="Gift Ideas" accentColor={ACCENT} onPress={() => {}} />
-      </View>
-
-      {/* Your Items */}
-      <SectionHeader title="Your Items" subtitle="Relationship tasks & notes" />
-      <ItemList circleContext="RELATIONSHIPS" showCompleted={false} maxItems={5} />
-
-      {/* Health Summary */}
-      <View style={styles.healthSummary}>
-        <View style={styles.healthItem}>
-          <View style={[styles.healthDotLarge, { backgroundColor: '#22c55e' }]} />
-          <Text style={styles.healthCount}>
-            {capsules?.filter(c => c.relationship_health?.status === 'thriving').length || 0}
-          </Text>
-        </View>
-        <View style={styles.healthItem}>
-          <View style={[styles.healthDotLarge, { backgroundColor: '#84cc16' }]} />
-          <Text style={styles.healthCount}>
-            {capsules?.filter(c => c.relationship_health?.status === 'healthy').length || 0}
-          </Text>
-        </View>
-        <View style={styles.healthItem}>
-          <View style={[styles.healthDotLarge, { backgroundColor: '#eab308' }]} />
-          <Text style={styles.healthCount}>
-            {capsules?.filter(c => 
-              c.relationship_health?.status === 'needs_attention' || 
-              c.relationship_health?.status === 'at_risk'
-            ).length || 0}
-          </Text>
-        </View>
-      </View>
-
-      {/* Capsules List */}
-      <SectionHeader 
-        title="Your Capsules" 
-        subtitle={`${capsules?.length || 0} connections`}
-        rightContent={<Text style={styles.sortLabel}>Sort ▼</Text>}
-      />
-      
-      {capsulesLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={ACCENT} />
-        </View>
-      ) : capsules && capsules.length > 0 ? (
-        <View style={styles.capsuleList}>
-          {capsules.map((capsule, index) => (
-            <CapsuleCard
-              key={capsule.id}
-              capsule={capsule}
-              index={index}
-              onPress={() => handleOpenCapsule(capsule.id)}
-            />
-          ))}
-        </View>
-      ) : (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>💫</Text>
-          <Text style={styles.emptyTitle}>No capsules yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Create your first relationship capsule to start tracking meaningful connections
-          </Text>
-          <TouchableOpacity 
-            style={styles.createButton}
-            onPress={() => setIsInviteModalVisible(true)}
-          >
-            <Text style={styles.createButtonText}>Create Capsule</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-    </Animated.View>
-  );
-
-  const renderRecentTab = () => (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <QuickAction icon="💬" label="Log Interaction" accentColor={ACCENT} onPress={() => {}} size="large" />
-        <QuickAction icon="🔍" label="Search" accentColor={ACCENT} onPress={() => {}} size="large" />
-      </View>
-
-      {/* Recent Activity */}
-      <SectionHeader title="Recent Activity" />
-      <View style={styles.activityList}>
-        {mockRecentInteractions.map((interaction, index) => (
-          <Animated.View 
-            key={interaction.id}
-            entering={FadeInUp.delay(index * 50).duration(300)}
-            style={styles.activityCard}
-          >
-            <View style={styles.activityIcon}>
-              <Text style={styles.activityEmoji}>
-                {interaction.type === 'message' ? '💬' : interaction.type === 'call' ? '📞' : '✅'}
-              </Text>
-            </View>
-            <View style={styles.activityInfo}>
-              <Text style={styles.activityPerson}>{interaction.person}</Text>
-              <Text style={styles.activityContent}>{interaction.content}</Text>
-            </View>
-            <Text style={styles.activityTime}>{interaction.time}</Text>
-          </Animated.View>
-        ))}
-      </View>
-    </Animated.View>
-  );
-
-  const renderCalendarTab = () => (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <QuickAction icon="📅" label="Add Event" accentColor={ACCENT} onPress={() => {}} size="large" />
-        <QuickAction icon="🔔" label="Reminders" accentColor={ACCENT} onPress={() => {}} size="large" />
-      </View>
-
-      {/* Upcoming Events */}
-      <SectionHeader title="Upcoming" subtitle="Don't forget!" />
-      <View style={styles.upcomingList}>
-        {mockUpcoming.map((event, index) => (
-          <Animated.View 
-            key={event.id}
-            entering={FadeInUp.delay(index * 50).duration(300)}
-            style={styles.upcomingCard}
-          >
-            <View style={styles.dateBox}>
-              <Text style={styles.dateDay}>{event.date.split(' ')[1]}</Text>
-              <Text style={styles.dateMonth}>{event.date.split(' ')[0]}</Text>
-            </View>
-            <View style={styles.eventInfo}>
-              <Text style={styles.eventPerson}>{event.person}</Text>
-              <Text style={styles.eventName}>{event.event}</Text>
-            </View>
-            <View style={styles.daysAway}>
-              <Text style={styles.daysNumber}>{event.daysAway}</Text>
-              <Text style={styles.daysLabel}>days</Text>
-            </View>
-          </Animated.View>
-        ))}
-      </View>
-    </Animated.View>
-  );
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-        <Text style={styles.title}>Relationships</Text>
-        <Text style={styles.subtitle}>Your connection capsules</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.nestEmoji}>🪺</Text>
+          <View>
+            <Text style={styles.title}>Your Nests</Text>
+            <Text style={styles.subtitle}>Spaces you share</Text>
+          </View>
+        </View>
       </Animated.View>
-
-      {/* Tab Bar */}
-      <CircleTabBar 
-        tabs={TABS} 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab}
-        accentColor={ACCENT}
-      />
 
       {/* Content */}
       <ScrollView 
@@ -219,9 +47,88 @@ export default function RelationshipsView() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {activeTab === 'capsules' && renderCapsulesTab()}
-        {activeTab === 'recent' && renderRecentTab()}
-        {activeTab === 'calendar' && renderCalendarTab()}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={NEST_WARM} />
+          </View>
+        ) : nests && nests.length > 0 ? (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.nestList}>
+            {/* Nest count header */}
+            <View style={styles.nestHeader}>
+              <Text style={styles.nestCount}>
+                {nests.length} {nests.length === 1 ? 'Nest' : 'Nests'}
+              </Text>
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setIsInviteModalVisible(true);
+                }}
+              >
+                <Text style={styles.addButtonText}>+ New Nest</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Nest Cards */}
+            {nests.map((nest, index) => (
+              <NestCard
+                key={nest.id}
+                nest={nest}
+                index={index}
+                onPress={() => handleOpenNest(nest.id)}
+              />
+            ))}
+          </Animated.View>
+        ) : (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.emptyState}>
+            {/* Nest illustration */}
+            <View style={styles.nestIllustration}>
+              <Text style={styles.bigNestEmoji}>🏠</Text>
+              <View style={styles.nestBase}>
+                <Text style={styles.nestBaseBranch}>🌿</Text>
+                <Text style={styles.nestBaseCenter}>🪺</Text>
+                <Text style={styles.nestBaseBranch}>🌿</Text>
+              </View>
+            </View>
+            
+            <Text style={styles.emptyTitle}>Build Your First Nest</Text>
+            <Text style={styles.emptySubtitle}>
+              A nest is a private space you share with someone special — 
+              partner, family, close friend.
+            </Text>
+            
+            {/* What's inside a nest */}
+            <View style={styles.nestFeatures}>
+              <View style={styles.featureRow}>
+                <Text style={styles.featureIcon}>💓</Text>
+                <Text style={styles.featureText}>Check in on each other</Text>
+              </View>
+              <View style={styles.featureRow}>
+                <Text style={styles.featureIcon}>📋</Text>
+                <Text style={styles.featureText}>Plan & decide together</Text>
+              </View>
+              <View style={styles.featureRow}>
+                <Text style={styles.featureIcon}>🔐</Text>
+                <Text style={styles.featureText}>Keep shared memories safe</Text>
+              </View>
+              <View style={styles.featureRow}>
+                <Text style={styles.featureIcon}>💬</Text>
+                <Text style={styles.featureText}>Private conversations</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.createButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setIsInviteModalVisible(true);
+              }}
+            >
+              <Text style={styles.createButtonIcon}>🪺</Text>
+              <Text style={styles.createButtonText}>Create a Nest</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
       </ScrollView>
 
       {/* Invite Modal */}
@@ -233,6 +140,81 @@ export default function RelationshipsView() {
   );
 }
 
+// Nest Card Component
+interface NestCardProps {
+  nest: any;
+  index: number;
+  onPress: () => void;
+}
+
+function NestCard({ nest, index, onPress }: NestCardProps) {
+  const partner = nest.partner;
+  const health = nest.relationship_health;
+  const isPending = nest.status === 'pending';
+  const inviteEmail = nest.user_b_email || nest.invite_email;
+  const displayName = partner?.display_name || nest.nickname || inviteEmail || 'Pending';
+  
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  return (
+    <Animated.View entering={FadeInUp.delay(index * 80).duration(400)}>
+      <TouchableOpacity
+        style={styles.nestCard}
+        onPress={handlePress}
+        activeOpacity={0.7}
+      >
+        {/* Nest icon with health glow */}
+        <View style={styles.nestIconContainer}>
+          <View style={[
+            styles.nestGlow,
+            { backgroundColor: isPending ? '#44444440' : `${getHealthColor(health?.status || 'healthy')}20` }
+          ]}>
+            <Text style={styles.nestCardEmoji}>🪺</Text>
+          </View>
+        </View>
+
+        {/* Nest info */}
+        <View style={styles.nestInfo}>
+          <View style={styles.nestNameRow}>
+            <Text style={styles.nestName} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {isPending && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingText}>Invited</Text>
+              </View>
+            )}
+          </View>
+          
+          {!isPending && health ? (
+            <View style={styles.nestStatusRow}>
+              <View style={[styles.healthDot, { backgroundColor: getHealthColor(health.status) }]} />
+              <Text style={styles.nestStatus}>
+                {health.days_since_meaningful_interaction === 0 
+                  ? 'Connected today'
+                  : health.days_since_meaningful_interaction === 1
+                  ? 'Yesterday'
+                  : `${health.days_since_meaningful_interaction}d ago`
+                }
+              </Text>
+            </View>
+          ) : isPending ? (
+            <Text style={styles.nestStatus}>Waiting for them to join...</Text>
+          ) : null}
+        </View>
+
+        {/* Enter arrow */}
+        <View style={styles.enterArrow}>
+          <Text style={styles.arrowText}>→</Text>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -240,18 +222,26 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 24,
     paddingTop: 60,
-    paddingBottom: 8,
+    paddingBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  nestEmoji: {
+    fontSize: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '300',
-    color: ACCENT,
-    letterSpacing: 1,
+    color: NEST_WARM,
+    letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#888',
-    marginTop: 4,
+    marginTop: 2,
   },
   scrollView: {
     flex: 1,
@@ -260,251 +250,198 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 120,
   },
-  tabContent: {
+  loadingContainer: {
+    flex: 1,
+    paddingTop: 100,
+    alignItems: 'center',
+  },
+  
+  // Nest list styles
+  nestList: {
+    paddingTop: 8,
+  },
+  nestHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  nestCount: {
+    fontSize: 15,
+    color: '#888',
+    fontWeight: '500',
+  },
+  addButton: {
+    backgroundColor: `${NEST_WARM}20`,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+  },
+  addButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: NEST_WARM,
+  },
+  
+  // Nest card styles
+  nestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 165, 116, 0.08)',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 165, 116, 0.15)',
+  },
+  nestIconContainer: {
+    marginRight: 14,
+  },
+  nestGlow: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nestCardEmoji: {
+    fontSize: 28,
+  },
+  nestInfo: {
     flex: 1,
   },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  healthSummary: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 32,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  healthItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  healthDotLarge: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  healthCount: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#E0E0E0',
-  },
-  sortLabel: {
-    fontSize: 14,
-    color: ACCENT,
-  },
-  capsuleList: {
-    gap: 10,
-  },
-  capsuleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: `${ACCENT}12`,
-    gap: 12,
-  },
-  avatarContainer: {
-    position: 'relative',
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: `${ACCENT}30`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 22,
-    fontWeight: '500',
-    color: ACCENT,
-  },
-  healthDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#0f0f0f',
-  },
-  capsuleInfo: {
-    flex: 1,
-  },
-  capsuleHeader: {
+  nestNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  capsuleName: {
+  nestName: {
     fontSize: 18,
-    fontWeight: '400',
-    color: '#E0E0E0',
+    fontWeight: '500',
+    color: '#E8E8E8',
+    flex: 1,
   },
-  unreadBadge: {
-    backgroundColor: ACCENT,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  pendingBadge: {
+    backgroundColor: '#666',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 10,
   },
-  unreadText: {
+  pendingText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#fff',
+    color: '#ccc',
   },
-  capsuleRelation: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 2,
-  },
-  healthStatus: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  capsuleRight: {
-    alignItems: 'flex-end',
-  },
-  lastContact: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  chevron: {
-    fontSize: 24,
-    color: '#666',
-  },
-  activityList: {
-    gap: 10,
-  },
-  activityCard: {
+  nestStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: `${ACCENT}10`,
-    gap: 12,
+    gap: 6,
+    marginTop: 4,
   },
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${ACCENT}20`,
+  healthDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  nestStatus: {
+    fontSize: 13,
+    color: '#888',
+  },
+  enterArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${NEST_WARM}15`,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activityEmoji: {
+  arrowText: {
     fontSize: 18,
+    color: NEST_WARM,
+    fontWeight: '300',
   },
-  activityInfo: {
-    flex: 1,
+  
+  // Empty state styles
+  emptyState: {
+    paddingTop: 40,
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  activityPerson: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#E0E0E0',
+  nestIllustration: {
+    alignItems: 'center',
+    marginBottom: 32,
   },
-  activityContent: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 2,
+  bigNestEmoji: {
+    fontSize: 80,
+    marginBottom: -20,
   },
-  activityTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  upcomingList: {
-    gap: 10,
-  },
-  upcomingCard: {
+  nestBase: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: `${ACCENT}10`,
-    gap: 12,
+    gap: 8,
   },
-  dateBox: {
-    width: 50,
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: `${ACCENT}25`,
+  nestBaseBranch: {
+    fontSize: 32,
   },
-  dateDay: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: ACCENT,
-  },
-  dateMonth: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 2,
-  },
-  eventInfo: {
-    flex: 1,
-  },
-  eventPerson: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#E0E0E0',
-  },
-  eventName: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 2,
-  },
-  daysAway: {
-    alignItems: 'center',
-  },
-  daysNumber: {
-    fontSize: 20,
-    fontWeight: '300',
-    color: ACCENT,
-  },
-  daysLabel: {
-    fontSize: 11,
-    color: '#666',
-  },
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyIcon: {
+  nestBaseCenter: {
     fontSize: 48,
-    marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '400',
-    color: '#E0E0E0',
-    marginBottom: 8,
+    color: NEST_WARM,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#888',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: 22,
+    marginBottom: 32,
+    maxWidth: 280,
+  },
+  nestFeatures: {
+    width: '100%',
+    marginBottom: 32,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(212, 165, 116, 0.06)',
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  featureIcon: {
+    fontSize: 20,
+    marginRight: 14,
+  },
+  featureText: {
+    fontSize: 15,
+    color: '#ccc',
   },
   createButton: {
-    backgroundColor: ACCENT,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: NEST_WARM,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 28,
+    gap: 10,
+    shadowColor: NEST_WARM,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  createButtonIcon: {
+    fontSize: 24,
   },
   createButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
   },
 });

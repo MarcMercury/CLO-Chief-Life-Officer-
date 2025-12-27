@@ -89,10 +89,7 @@ export function useCapsule() {
     try {
       const { data, error: err } = await db
         .from('relationship_capsules')
-        .select(`
-          *,
-          partner:profiles!user_b_id(id, full_name, avatar_url)
-        `)
+        .select('*')
         .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`)
         .order('updated_at', { ascending: false });
 
@@ -660,10 +657,7 @@ export function useSignalChat(capsuleId: string) {
     try {
       const { data, error } = await db
         .from('capsule_messages')
-        .select(`
-          *,
-          sender:profiles!sender_id(id, full_name, avatar_url)
-        `)
+        .select('*')
         .eq('capsule_id', capsuleId)
         .order('created_at', { ascending: false })
         .limit(limit);
