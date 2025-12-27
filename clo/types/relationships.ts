@@ -256,24 +256,168 @@ export interface SendMessageInput {
 // Capsule Zones (UI Organization)
 // ============================================
 
-export type CapsuleZone = "pulse" | "plan" | "chat" | "vault";
+export type CapsuleZone = "pulse" | "plan" | "decide" | "resolve" | "chat" | "vault";
+
+// ============================================
+// Pulse Check-In (Daily Emotional Check)
+// ============================================
+
+export type MoodEmoji = "😊" | "🙂" | "😐" | "😔" | "😢";
+
+export interface PulseCheckIn {
+  id: string;
+  capsule_id: string;
+  user_id: string;
+  mood_self: MoodEmoji; // How am I feeling?
+  mood_partner: MoodEmoji; // How do I feel about you?
+  mood_relationship: MoodEmoji; // How do I feel about "us"?
+  notes?: string; // Private reflection
+  logged_at: string;
+}
+
+// ============================================
+// Plan Items (Brainstorming Sandbox)
+// ============================================
+
+export type PlanCategory = "date" | "trip" | "purchase" | "activity" | "general";
+
+export interface PlanItem {
+  id: string;
+  capsule_id: string;
+  title: string;
+  description?: string;
+  category: PlanCategory;
+  created_by: string;
+  vote_a?: boolean; // User A's vote
+  vote_b?: boolean; // User B's vote
+  status: "planning" | "promoted" | "archived";
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================
+// Decide Items (Finalization)
+// ============================================
+
+export interface DecideItem {
+  id: string;
+  capsule_id: string;
+  plan_item_id?: string;
+  title: string;
+  description?: string;
+  option_a?: string;
+  option_b?: string;
+  choice_user_a?: string;
+  choice_user_b?: string;
+  final_decision?: string;
+  scheduled_date?: string;
+  status: "pending" | "decided" | "completed" | "cancelled";
+  decided_at?: string;
+  created_at: string;
+}
+
+// ============================================
+// Resolve Items (Conflict Resolution)
+// ============================================
+
+export interface ResolveItem {
+  id: string;
+  capsule_id: string;
+  issue: string;
+  initiated_by: string;
+  
+  // User A's perspective
+  feeling_a?: string;
+  need_a?: string;
+  willing_a?: string;
+  compromise_a?: string;
+  accepted_a: boolean;
+  
+  // User B's perspective
+  feeling_b?: string;
+  need_b?: string;
+  willing_b?: string;
+  compromise_b?: string;
+  accepted_b: boolean;
+  
+  final_resolution?: string;
+  status: "open" | "in_progress" | "resolved" | "stale";
+  created_at: string;
+  resolved_at?: string;
+}
+
+// ============================================
+// Enhanced Vault with Double-Consent
+// ============================================
+
+export interface VaultItemWithConsent extends VaultItem {
+  approved_by_uploader: boolean;
+  approved_by_partner: boolean;
+  status: "pending" | "visible" | "rejected";
+}
 
 export interface CapsuleZoneData {
   pulse: {
     health: RelationshipHealth;
-    recentInteractions: InteractionLog[];
+    recentCheckIns: PulseCheckIn[];
     emotionalTrend: EmotionalLog[];
   };
   plan: {
-    tasks: SharedTaskWithAssignee[];
-    openLoops: OpenLoop[];
+    items: PlanItem[];
+  };
+  decide: {
+    items: DecideItem[];
+  };
+  resolve: {
+    items: ResolveItem[];
   };
   chat: {
     messages: DecryptedMessage[];
     typingUsers: string[];
   };
   vault: {
-    items: VaultItem[];
+    items: VaultItemWithConsent[];
     unlocked: boolean;
   };
+}
+
+// ============================================
+// Input Types for New Modules
+// ============================================
+
+export interface CreatePlanItemInput {
+  capsule_id: string;
+  title: string;
+  description?: string;
+  category?: PlanCategory;
+}
+
+export interface CreateDecideItemInput {
+  capsule_id: string;
+  title: string;
+  description?: string;
+  option_a?: string;
+  option_b?: string;
+  plan_item_id?: string;
+}
+
+export interface CreateResolveItemInput {
+  capsule_id: string;
+  issue: string;
+}
+
+export interface SubmitResolvePerspectiveInput {
+  resolve_id: string;
+  feeling: string;
+  need: string;
+  willing: string;
+  compromise: string;
+}
+
+export interface PulseCheckInInput {
+  capsule_id: string;
+  mood_self: MoodEmoji;
+  mood_partner: MoodEmoji;
+  mood_relationship: MoodEmoji;
+  notes?: string;
 }

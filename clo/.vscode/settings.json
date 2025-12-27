@@ -1,6 +1,8 @@
 {
-  "deno.enablePaths": ["./supabase/functions"],
-  "deno.enable": false,
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.enable": true,
+  "deno.lint": true,
+  "deno.unstable": true,
   "typescript.validate.enable": true,
   "mssql.intelliSense.enableIntellisense": false,
   "mssql.messagesDefaultOpen": false,
@@ -8,9 +10,6 @@
     "supabase/**/*.sql": "plaintext"
   },
   "markdownlint.config": {
-    "MD032": false,
-    "MD034": false,
-    "MD031": false,
-    "MD022": false
+    "default": false
   }
 }

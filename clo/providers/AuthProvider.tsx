@@ -101,16 +101,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    // Determine redirect URL based on platform (web vs native)
-    const redirectUrl = typeof window !== 'undefined' 
-      ? `${window.location.origin}/auth/callback`
-      : 'clo://auth/callback';
-      
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectUrl,
-        skipBrowserRedirect: false,
+        redirectTo: typeof window !== 'undefined' 
+          ? window.location.origin
+          : 'clo://auth/callback',
       },
     });
     return { error };
