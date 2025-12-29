@@ -131,11 +131,47 @@ export function useCapsule(capsuleId: string) {
 // CREATE & INVITE
 // ============================================
 
+// Helper function to send invite email via Edge Function
+async function sendInviteEmail(params: {
+  invitee_email: string;
+  inviter_name: string;
+  invite_token: string;
+  capsule_id: string;
+}): Promise<{ success: boolean; message: string }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error('Not authenticated');
+  }
+
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error('Supabase URL not configured');
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/send-invite-email`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    console.error('Email invite error:', result);
+    throw new Error(result.message || 'Failed to send invite email');
+  }
+
+  return result;
+}
+
 export function useCreateCapsule() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateCapsuleInput): Promise<RelationshipCapsule> => {
+    mutationFn: async (input: CreateCapsuleInput): Promise<RelationshipCapsule & { emailSent?: boolean }> => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -155,10 +191,55 @@ export function useCreateCapsule() {
         console.error('Capsule creation error:', error);
         throw new Error(error.message);
       }
-      return data as RelationshipCapsule;
+
+      const capsule = data as RelationshipCapsule;
+      
+      // Try to send the invite email (non-blocking - capsule is created regardless)
+      let emailSent = false;
+      try {
+        const inviterName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'Someone';
+        await sendInviteEmail({
+          invitee_email: input.partner_email,
+          inviter_name: inviterName,
+          invite_token: capsule.invite_token,
+          capsule_id: capsule.id,
+        });
+        emailSent = true;
+        console.log('Invite email sent successfully');
+      } catch (emailError) {
+        // Log error but don't fail the capsule creation
+        console.warn('Failed to send invite email:', emailError);
+      }
+
+      return { ...capsule, emailSent };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: capsuleKeys.all });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+// Resend invite email (for when the initial send fails or user wants to resend)
+export function useResendInviteEmail() {
+  return useMutation({
+    mutationFn: async (params: {
+      invitee_email: string;
+      invite_token: string;
+      capsule_id: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      return sendInviteEmail({
+        ...params,
+        inviter_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Someone',
+      });
+    },
+    onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: () => {

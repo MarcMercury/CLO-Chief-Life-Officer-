@@ -1,185 +1,60 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { CircleTabBar, QuickAction, ItemCard, SectionHeader } from '../components/shared';
-import { ItemList } from '../components/items';
-import {
-  InventorySection,
-  AddInventoryModal,
-  SubscriptionSection,
-  AddSubscriptionModal,
-  VendorSection,
-  MaintenanceSection,
-} from '../components/home';
-import { useHomeAlerts } from '@/hooks/useHomeOS';
+import { AddInventoryModal, AddSubscriptionModal } from '../components/home';
+import { useInventory, useSubscriptions, useHomeAlerts } from '@/hooks/useHomeOS';
 import { colors } from '@/constants/theme';
 
 const ACCENT = colors.home;
 
-const TABS = [
-  { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { key: 'inventory', label: 'Inventory', icon: '📦' },
-  { key: 'subscriptions', label: 'Subscriptions', icon: '💳' },
-  { key: 'vendors', label: 'Vendors', icon: '👷' },
-  { key: 'maintenance', label: 'Maintenance', icon: '🔧' },
-];
-
-// Mock data for dashboard (will be replaced with real data)
-const mockMaintenanceTasks = [
-  { id: '1', task: 'HVAC Filter Change', due: 'Overdue', room: 'Utility', icon: '🌀' },
-  { id: '2', task: 'Smoke Detector Battery', due: 'Jan 15', room: 'All Rooms', icon: '🔋' },
-  { id: '3', task: 'Gutter Cleaning', due: 'Feb 1', room: 'Exterior', icon: '🍂' },
-];
-
 export default function HomeView() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [showAddInventory, setShowAddInventory] = useState(false);
-  const [showAddSubscription, setShowAddSubscription] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addModalType, setAddModalType] = useState<'inventory' | 'subscription'>('inventory');
   
-  // Get real alerts from HomeOS
+  // Fetch data from database
+  const { data: inventory, isLoading: loadingInventory } = useInventory();
+  const { data: subscriptions, isLoading: loadingSubs } = useSubscriptions();
   const { data: alerts } = useHomeAlerts();
 
-  const renderDashboardTab = () => {
-    // Calculate alerts from real data
-    const warrantiesExpiring = alerts?.filter(a => a.type === 'warranty_expiring').length || 0;
-    const upcomingBills = alerts?.filter(a => a.type === 'subscription_billing').length || 0;
-    const maintenanceOverdue = alerts?.filter(a => a.type === 'maintenance_overdue').length || 0;
-    
-    return (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <QuickAction icon="📷" label="Scan Item" accentColor={ACCENT} onPress={() => setShowAddInventory(true)} />
-        <QuickAction icon="➕" label="Add Item" accentColor={ACCENT} onPress={() => setShowAddInventory(true)} />
-        <QuickAction icon="🔧" label="Find Vendor" accentColor={ACCENT} onPress={() => setActiveTab('vendors')} />
-        <QuickAction icon="🔔" label="Reminders" accentColor={ACCENT} onPress={() => setActiveTab('maintenance')} />
-      </View>
+  const isLoading = loadingInventory || loadingSubs;
 
-      {/* Alerts Card */}
-      <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.alertsCard}>
-        <View style={styles.alertsHeader}>
-          <Text style={styles.alertsTitle}>Active Alerts</Text>
-          <Text style={styles.alertsTotal}>
-            {warrantiesExpiring + upcomingBills + maintenanceOverdue}
-          </Text>
-        </View>
-        <View style={styles.alertsGrid}>
-          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7} onPress={() => setActiveTab('inventory')}>
-            <Text style={styles.alertValue}>{warrantiesExpiring}</Text>
-            <Text style={styles.alertLabel}>Warranties</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7} onPress={() => setActiveTab('subscriptions')}>
-            <Text style={styles.alertValue}>{upcomingBills}</Text>
-            <Text style={styles.alertLabel}>Bills Due</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.alertItem} activeOpacity={0.7} onPress={() => setActiveTab('maintenance')}>
-            <Text style={[styles.alertValue, maintenanceOverdue > 0 && styles.alertWarning]}>
-              {maintenanceOverdue}
-            </Text>
-            <Text style={styles.alertLabel}>Overdue</Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
+  // Calculate stats
+  const inventoryCount = inventory?.length || 0;
+  const subscriptionCount = subscriptions?.length || 0;
+  const monthlySpend = subscriptions?.reduce((total, sub) => {
+    const cost = sub.cost || 0;
+    switch (sub.frequency) {
+      case 'monthly': return total + cost;
+      case 'quarterly': return total + (cost / 3);
+      case 'annual': return total + (cost / 12);
+      default: return total + cost;
+    }
+  }, 0) || 0;
 
-      {/* Monthly Burn Rate - TODO: fetch from subscriptions */}
-      <View style={styles.burnCard}>
-        <Text style={styles.burnLabel}>Monthly Recurring</Text>
-        <Text style={styles.burnValue}>$--</Text>
-      </View>
+  // Alert counts
+  const warrantiesExpiring = alerts?.filter(a => a.type === 'warranty_expiring').length || 0;
+  const upcomingBills = alerts?.filter(a => a.type === 'subscription_billing').length || 0;
+  const totalAlerts = warrantiesExpiring + upcomingBills;
 
-      {/* Maintenance Tasks */}
-      <SectionHeader title="Your Items" subtitle="Home tasks & notes" />
-      <ItemList circleContext="HOME" showCompleted={false} maxItems={5} />
-
-      {/* Upcoming Maintenance */}
-      <SectionHeader title="Upcoming Maintenance" subtitle={`${mockMaintenanceTasks.length} tasks`} />
-      <View style={styles.taskList}>
-        {mockMaintenanceTasks.map((task, index) => (
-          <ItemCard
-            key={task.id}
-            title={task.task}
-            subtitle={`${task.room} • ${task.due}`}
-            icon={task.icon}
-            accentColor={ACCENT}
-            index={index}
-            isCompleted={false}
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            rightContent={
-              task.due === 'Overdue' ? (
-                <View style={styles.overdueBadge}>
-                  <Text style={styles.overdueText}>!</Text>
-                </View>
-              ) : null
-            }
-          />
-        ))}
-      </View>
-    </Animated.View>
-    );
+  const openAddModal = (type: 'inventory' | 'subscription') => {
+    setAddModalType(type);
+    setShowAddModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-
-  const renderInventoryTab = () => (
-    <InventorySection
-      onAddPress={() => setShowAddInventory(true)}
-      onItemPress={(item) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // TODO: Open item detail modal
-      }}
-    />
-  );
-
-  const renderSubscriptionsTab = () => (
-    <SubscriptionSection
-      onAddPress={() => setShowAddSubscription(true)}
-      onItemPress={(sub) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // TODO: Open subscription detail modal
-      }}
-    />
-  );
-
-  const renderVendorsTab = () => (
-    <VendorSection
-      onAddPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        // TODO: Open add vendor modal
-      }}
-      onItemPress={(vendor) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // TODO: Open vendor detail modal
-      }}
-    />
-  );
-
-  const renderMaintenanceTab = () => (
-    <MaintenanceSection
-      onAddPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        // TODO: Open add maintenance modal
-      }}
-      onItemPress={(task) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // TODO: Open task detail modal
-      }}
-    />
-  );
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-        <Text style={styles.title}>Home</Text>
-        <Text style={styles.subtitle}>Chief Household Officer</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerEmoji}>🏠</Text>
+          <View>
+            <Text style={styles.title}>Home</Text>
+            <Text style={styles.subtitle}>Chief Household Officer</Text>
+          </View>
+        </View>
       </Animated.View>
-
-      {/* Tab Bar */}
-      <CircleTabBar 
-        tabs={TABS} 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab}
-        accentColor={ACCENT}
-      />
 
       {/* Content */}
       <ScrollView 
@@ -187,23 +62,188 @@ export default function HomeView() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {activeTab === 'dashboard' && renderDashboardTab()}
-        {activeTab === 'inventory' && renderInventoryTab()}
-        {activeTab === 'subscriptions' && renderSubscriptionsTab()}
-        {activeTab === 'vendors' && renderVendorsTab()}
-        {activeTab === 'maintenance' && renderMaintenanceTab()}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={ACCENT} />
+          </View>
+        ) : (
+          <Animated.View entering={FadeIn.duration(300)}>
+            {/* Stats Summary */}
+            <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.statsCard}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{inventoryCount}</Text>
+                <Text style={styles.statLabel}>Items</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{subscriptionCount}</Text>
+                <Text style={styles.statLabel}>Subscriptions</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>${monthlySpend.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Monthly</Text>
+              </View>
+            </Animated.View>
+
+            {/* Alerts (if any) */}
+            {totalAlerts > 0 && (
+              <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.alertsCard}>
+                <Text style={styles.alertsTitle}>⚠️ {totalAlerts} {totalAlerts === 1 ? 'Alert' : 'Alerts'}</Text>
+                {warrantiesExpiring > 0 && (
+                  <Text style={styles.alertItem}>• {warrantiesExpiring} warranty expiring soon</Text>
+                )}
+                {upcomingBills > 0 && (
+                  <Text style={styles.alertItem}>• {upcomingBills} bill due this week</Text>
+                )}
+              </Animated.View>
+            )}
+
+            {/* Inventory Section */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>📦 Inventory</Text>
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={() => openAddModal('inventory')}
+              >
+                <Text style={styles.addButtonText}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {inventoryCount === 0 ? (
+              <View style={styles.emptySection}>
+                <Text style={styles.emptyText}>No items yet</Text>
+                <TouchableOpacity 
+                  style={styles.emptyButton}
+                  onPress={() => openAddModal('inventory')}
+                >
+                  <Text style={styles.emptyButtonText}>Add your first item</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.itemList}>
+                {inventory?.slice(0, 5).map((item, index) => (
+                  <InventoryCard key={item.id} item={item} index={index} />
+                ))}
+                {inventoryCount > 5 && (
+                  <Text style={styles.moreText}>+{inventoryCount - 5} more items</Text>
+                )}
+              </View>
+            )}
+
+            {/* Subscriptions Section */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>💳 Subscriptions</Text>
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={() => openAddModal('subscription')}
+              >
+                <Text style={styles.addButtonText}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {subscriptionCount === 0 ? (
+              <View style={styles.emptySection}>
+                <Text style={styles.emptyText}>No subscriptions tracked</Text>
+                <TouchableOpacity 
+                  style={styles.emptyButton}
+                  onPress={() => openAddModal('subscription')}
+                >
+                  <Text style={styles.emptyButtonText}>Track a subscription</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.itemList}>
+                {subscriptions?.slice(0, 5).map((sub, index) => (
+                  <SubscriptionCard key={sub.id} subscription={sub} index={index} />
+                ))}
+                {subscriptionCount > 5 && (
+                  <Text style={styles.moreText}>+{subscriptionCount - 5} more subscriptions</Text>
+                )}
+              </View>
+            )}
+          </Animated.View>
+        )}
       </ScrollView>
 
-      {/* Modals */}
+      {/* Add Modal - switches between inventory and subscription */}
       <AddInventoryModal 
-        visible={showAddInventory} 
-        onClose={() => setShowAddInventory(false)} 
+        visible={showAddModal && addModalType === 'inventory'} 
+        onClose={() => setShowAddModal(false)} 
       />
       <AddSubscriptionModal 
-        visible={showAddSubscription} 
-        onClose={() => setShowAddSubscription(false)} 
+        visible={showAddModal && addModalType === 'subscription'} 
+        onClose={() => setShowAddModal(false)} 
       />
     </View>
+  );
+}
+
+// Inventory Card Component
+interface InventoryCardProps {
+  item: any;
+  index: number;
+}
+
+function InventoryCard({ item, index }: InventoryCardProps) {
+  return (
+    <Animated.View entering={FadeInUp.delay(index * 50).duration(300)}>
+      <TouchableOpacity
+        style={styles.itemCard}
+        activeOpacity={0.7}
+      >
+        <View style={styles.itemIcon}>
+          <Text style={styles.itemEmoji}>📦</Text>
+        </View>
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemTitle} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={styles.itemSubtitle}>
+            {item.brand || item.category || 'Home item'}
+          </Text>
+        </View>
+        {item.warranty_expires && (
+          <View style={styles.warrantyBadge}>
+            <Text style={styles.warrantyText}>🛡️</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// Subscription Card Component
+interface SubscriptionCardProps {
+  subscription: any;
+  index: number;
+}
+
+function SubscriptionCard({ subscription, index }: SubscriptionCardProps) {
+  const costDisplay = subscription.frequency === 'annual' 
+    ? `$${(subscription.cost / 12).toFixed(0)}/mo`
+    : `$${subscription.cost}/${subscription.frequency?.slice(0, 2) || 'mo'}`;
+
+  return (
+    <Animated.View entering={FadeInUp.delay(index * 50).duration(300)}>
+      <TouchableOpacity
+        style={styles.itemCard}
+        activeOpacity={0.7}
+      >
+        <View style={styles.itemIcon}>
+          <Text style={styles.itemEmoji}>💳</Text>
+        </View>
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemTitle} numberOfLines={1}>
+            {subscription.name}
+          </Text>
+          <Text style={styles.itemSubtitle}>
+            {subscription.category || 'Subscription'}
+          </Text>
+        </View>
+        <Text style={styles.costText}>{costDisplay}</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -214,18 +254,26 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 24,
     paddingTop: 60,
-    paddingBottom: 8,
+    paddingBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  headerEmoji: {
+    fontSize: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '300',
     color: ACCENT,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#888',
-    marginTop: 4,
+    marginTop: 2,
   },
   scrollView: {
     flex: 1,
@@ -234,264 +282,165 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 120,
   },
-  tabContent: {
+  loadingContainer: {
     flex: 1,
+    paddingTop: 100,
+    alignItems: 'center',
   },
-  quickActions: {
+  
+  // Stats card
+  statsCard: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  alertsCard: {
     backgroundColor: `${ACCENT}12`,
     borderRadius: 16,
-    padding: 18,
-    marginTop: 16,
-  },
-  alertsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    padding: 20,
     marginBottom: 16,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: '#E0E0E0',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 4,
+  },
+  
+  // Alerts card
+  alertsCard: {
+    backgroundColor: 'rgba(234, 179, 8, 0.12)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(234, 179, 8, 0.2)',
   },
   alertsTitle: {
     fontSize: 14,
-    color: '#888',
-  },
-  alertsTotal: {
-    fontSize: 16,
     fontWeight: '600',
-    color: ACCENT,
-    backgroundColor: `${ACCENT}25`,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  alertsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    color: '#eab308',
+    marginBottom: 6,
   },
   alertItem: {
-    alignItems: 'center',
-    padding: 8,
-  },
-  alertValue: {
-    fontSize: 28,
-    fontWeight: '300',
-    color: '#E0E0E0',
-  },
-  alertWarning: {
-    color: '#eab308',
-  },
-  alertLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#888',
     marginTop: 4,
   },
-  burnCard: {
+  
+  // Section header
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: `${ACCENT}10`,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
+    marginTop: 24,
+    marginBottom: 12,
   },
-  burnLabel: {
-    fontSize: 14,
-    color: '#888',
-  },
-  burnValue: {
-    fontSize: 24,
-    fontWeight: '300',
-    color: ACCENT,
-  },
-  taskList: {
-    gap: 10,
-  },
-  overdueBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#ef4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overdueText: {
-    color: '#fff',
+  sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
-  },
-  inventorySummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: `${ACCENT}12`,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  summaryDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  summaryValue: {
-    fontSize: 20,
-    fontWeight: '400',
+    fontWeight: '500',
     color: '#E0E0E0',
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 4,
-  },
-  warningText: {
-    color: '#eab308',
-  },
-  filterLabel: {
-    fontSize: 14,
-    color: ACCENT,
-  },
-  inventoryList: {
-    gap: 10,
-  },
-  warrantyBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expiredBadge: {
-    backgroundColor: '#ef4444',
-  },
-  expiringSoonBadge: {
-    backgroundColor: '#eab308',
-  },
-  warrantyText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  monthlyCard: {
-    backgroundColor: `${ACCENT}15`,
-    borderRadius: 16,
-    padding: 24,
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  monthlyLabel: {
-    fontSize: 14,
-    color: '#888',
-  },
-  monthlyValue: {
-    fontSize: 40,
-    fontWeight: '200',
-    color: ACCENT,
-    marginTop: 8,
-  },
-  monthlySubtext: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 8,
-  },
-  subscriptionList: {
-    gap: 10,
-  },
-  subscriptionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: `${ACCENT}10`,
-    gap: 12,
-  },
-  subIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+  addButton: {
     backgroundColor: `${ACCENT}20`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
   },
-  subEmoji: {
-    fontSize: 22,
-  },
-  subInfo: {
-    flex: 1,
-  },
-  subName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#E0E0E0',
-  },
-  subNext: {
+  addButtonText: {
     fontSize: 13,
-    color: '#888',
-    marginTop: 2,
-  },
-  subAmount: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  subPrice: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#E0E0E0',
-  },
-  subPeriod: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 2,
-  },
-  reviewBadge: {
-    backgroundColor: '#eab308',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  reviewText: {
-    fontSize: 11,
     fontWeight: '600',
-    color: '#000',
+    color: ACCENT,
   },
-  cancelAssist: {
+  
+  // Empty section
+  emptySection: {
+    backgroundColor: `${ACCENT}06`,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: `${ACCENT}10`,
+    borderStyle: 'dashed',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  emptyButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  emptyButtonText: {
+    fontSize: 14,
+    color: ACCENT,
+    fontWeight: '500',
+  },
+  
+  // Item list
+  itemList: {
+    gap: 10,
+  },
+  moreText: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  
+  // Item card
+  itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: `${ACCENT}08`,
-    borderWidth: 1,
-    borderColor: `${ACCENT}30`,
     borderRadius: 14,
-    padding: 16,
-    marginTop: 24,
-    gap: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: `${ACCENT}12`,
   },
-  cancelIcon: {
-    fontSize: 28,
+  itemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: `${ACCENT}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  cancelInfo: {
+  itemEmoji: {
+    fontSize: 20,
+  },
+  itemInfo: {
     flex: 1,
   },
-  cancelTitle: {
+  itemTitle: {
     fontSize: 15,
-    fontWeight: '500',
     color: '#E0E0E0',
+    fontWeight: '500',
   },
-  cancelSubtitle: {
-    fontSize: 13,
+  itemSubtitle: {
+    fontSize: 12,
     color: '#888',
     marginTop: 2,
   },
-  cancelChevron: {
-    fontSize: 24,
+  warrantyBadge: {
+    paddingHorizontal: 8,
+  },
+  warrantyText: {
+    fontSize: 16,
+  },
+  costText: {
+    fontSize: 14,
     color: ACCENT,
+    fontWeight: '500',
   },
 });

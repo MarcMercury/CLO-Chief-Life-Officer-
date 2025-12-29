@@ -38,11 +38,17 @@ export interface RelationshipCapsule {
   id: string;
   user_a_id: string;
   user_b_id: string | null; // null until invite accepted
-  user_b_email: string | null; // email for pending invite
-  invite_code: string | null;
+  user_b_email: string | null; // email for pending invite (legacy)
+  invite_email: string | null; // email for pending invite
+  invite_token: string; // UUID token for magic link invites
+  invite_code: string | null; // legacy code alias
   status: CapsuleStatus;
   nickname: string | null; // e.g., "Sarah ❤️" or "Work Partner"
   relationship_type: string | null; // e.g., "spouse", "friend", "colleague"
+  tier: string; // 'INNER_CIRCLE', 'STANDARD', 'ACQUAINTANCE'
+  sentiment_score: number; // 0.0 to 1.0
+  streak_days: number;
+  last_deep_connect: string | null;
   shared_key: string | null; // Public key for E2EE
   created_at: string;
   updated_at: string;
@@ -55,8 +61,7 @@ export interface CapsuleWithPartner extends RelationshipCapsule {
     avatar_url: string | null;
   } | null;
   relationship_health: RelationshipHealth | null;
-  // Convenience aliases for accessing invite info
-  invite_email?: string | null; // alias for user_b_email
+  // Convenience alias
   partner_id?: string | null; // alias for user_b_id
 }
 
