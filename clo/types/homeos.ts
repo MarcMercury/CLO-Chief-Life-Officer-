@@ -269,3 +269,60 @@ export interface CreateMaintenanceScheduleInput {
   last_completed?: string;
   notes?: string;
 }
+
+// ============================================
+// Household Wiki (The Household Manual)
+// ============================================
+
+export type WikiEntryCategory =
+  | 'wifi_network'
+  | 'gate_codes'
+  | 'trash_schedule'
+  | 'utilities'
+  | 'emergency_contacts'
+  | 'parking'
+  | 'appliance_tips'
+  | 'seasonal'
+  | 'other';
+
+export interface HouseholdWikiEntry {
+  id: string;
+  user_id: string;
+  property_id: string | null;
+  category: WikiEntryCategory;
+  title: string;
+  content: string;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateWikiEntryInput {
+  property_id?: string;
+  category: WikiEntryCategory;
+  title: string;
+  content: string;
+  is_pinned?: boolean;
+}
+
+// ============================================
+// Multi-Property Support
+// ============================================
+
+export interface Property {
+  id: string;
+  user_id: string;
+  name: string;
+  address: string | null;
+  photo_url: string | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePropertyInput {
+  name: string;
+  address?: string;
+  photo_url?: string;
+  is_primary?: boolean;
+}

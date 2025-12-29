@@ -198,3 +198,43 @@ export function useDeleteItem() {
     },
   });
 }
+
+// Update an item (title, metadata, etc.)
+interface UpdateItemInput {
+  itemId: string;
+  updates: {
+    title?: string;
+    description?: string;
+    metadata?: Record<string, any>;
+    due_date?: string | null;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+  };
+}
+
+export function useUpdateItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemId, updates }: UpdateItemInput) => {
+      const { data, error } = await (supabase
+        .from('items') as any)
+        .update(updates)
+        .eq('id', itemId)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return data as Item;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: itemKeys.all });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}

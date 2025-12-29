@@ -1,4 +1,11 @@
-import React, { useEffect } from 'react';
+/**
+ * DashboardView - The "Daily Flow" Hub
+ * 
+ * A unified view that aggregates data from all three circles (Self, Relationships, Home)
+ * into a single chronological agenda with the Pulse sync button at the top.
+ */
+
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text as RNText,
@@ -6,11 +13,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   FadeIn,
   FadeInUp,
+  FadeInDown,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -27,14 +36,28 @@ import {
   formatTime,
 } from '@/services/pulseService';
 import { Text, Heading, Subheading, Label, Caption } from '@/components/ui';
+import { DailyAgenda } from '@/components/dashboard';
 import { colors, spacing, borderRadius, typography } from '@/constants/theme';
 import haptics from '@/lib/haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SYNC_BUTTON_SIZE = 100;
+const SYNC_BUTTON_SIZE = 60;
+
+// ============================================
+// VIEW MODE TOGGLE
+// ============================================
+
+type ViewMode = 'agenda' | 'widgets';
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 export default function DashboardView() {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>('agenda');
+  const [refreshing, setRefreshing] = useState(false);
+  
   const {
     isSyncing,
     bioMetrics,
@@ -75,16 +98,16 @@ export default function DashboardView() {
       spinRotation.value = withTiming(0, { duration: 300 });
       breatheScale.value = withRepeat(
         withSequence(
-          withTiming(1.05, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.03, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
       );
       breatheOpacity.value = withRepeat(
         withSequence(
-          withTiming(0.5, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+          withTiming(0.5, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: 3000, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
         true
@@ -113,191 +136,248 @@ export default function DashboardView() {
     haptics.selection();
     router.push('/settings/integrations');
   };
+  
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await triggerSync();
+    setRefreshing(false);
+  };
 
   const greeting = getGreeting();
 
   return (
-    <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+    <View style={styles.container}>
+      {/* Fixed Header with Sync Button */}
+      <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
-            <Heading size="4xl">{greeting}</Heading>
-            <Subheading style={styles.subtitle}>Your Life at a Glance</Subheading>
+          {/* Left: Greeting */}
+          <View style={styles.headerLeft}>
+            <Heading size="2xl">{greeting}</Heading>
+            {!isUsingRealData && (
+              <TouchableOpacity onPress={handleOpenSettings} style={styles.mockDataPill}>
+                <Text style={styles.mockDataText}>📊 Demo Mode</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <TouchableOpacity 
-            onPress={handleOpenSettings} 
-            style={styles.settingsButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.settingsIcon}>⚙️</Text>
-          </TouchableOpacity>
+          
+          {/* Right: Sync Button */}
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={handleSync}
+              disabled={isSyncing}
+              activeOpacity={0.8}
+              style={styles.syncTouchable}
+            >
+              {/* Glow effect */}
+              <Animated.View style={[styles.syncGlow, glowStyle]} />
+              
+              {/* Main button */}
+              <Animated.View style={[styles.syncButton, syncButtonStyle]}>
+                <Text style={styles.syncIcon}>{isSyncing ? '↻' : '◉'}</Text>
+              </Animated.View>
+            </TouchableOpacity>
+            
+            {/* Settings */}
+            <TouchableOpacity 
+              onPress={handleOpenSettings} 
+              style={styles.settingsButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         
-        {/* Data Source Indicator */}
-        {!isUsingRealData && (
-          <TouchableOpacity onPress={handleOpenSettings} style={styles.mockDataBanner}>
-            <Text style={styles.mockDataText}>
-              📊 Using demo data • Tap to connect real services
-            </Text>
-          </TouchableOpacity>
-        )}
-      </Animated.View>
-
-      {/* Sync Button */}
-      <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.syncContainer}>
-        <TouchableOpacity
-          onPress={handleSync}
-          disabled={isSyncing}
-          activeOpacity={0.8}
-        >
-          {/* Glow effect */}
-          <Animated.View style={[styles.syncGlow, glowStyle]} />
-          
-          {/* Main button */}
-          <Animated.View style={[styles.syncButton, syncButtonStyle]}>
-            <View style={styles.syncInner}>
-              <Text style={styles.syncIcon}>{isSyncing ? '↻' : '◉'}</Text>
-            </View>
-          </Animated.View>
-        </TouchableOpacity>
-        
+        {/* Sync Status */}
         <Text style={styles.syncStatus}>
           {isSyncing ? 'Syncing your world...' : `Updated ${lastSyncedText}`}
         </Text>
+        
+        {/* View Mode Toggle */}
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'agenda' && styles.toggleButtonActive,
+            ]}
+            onPress={() => {
+              haptics.selection();
+              setViewMode('agenda');
+            }}
+          >
+            <Text style={[
+              styles.toggleText,
+              viewMode === 'agenda' && styles.toggleTextActive,
+            ]}>
+              📅 Agenda
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'widgets' && styles.toggleButtonActive,
+            ]}
+            onPress={() => {
+              haptics.selection();
+              setViewMode('widgets');
+            }}
+          >
+            <Text style={[
+              styles.toggleText,
+              viewMode === 'widgets' && styles.toggleTextActive,
+            ]}>
+              📊 Widgets
+            </Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
-
-      {/* Widget Grid */}
-      <View style={styles.widgetGrid}>
-        {/* Self / Bio Widget */}
-        <Animated.View entering={FadeInUp.delay(200).duration(400)}>
-          <TouchableOpacity style={[styles.widget, styles.selfWidget]} activeOpacity={0.7}>
-            {bioMetrics ? (
-              <>
-                <View style={styles.widgetHeader}>
-                  <Text style={styles.widgetEmoji}>{getMoodEmoji(bioMetrics.mood)}</Text>
-                  <Text style={[styles.widgetTitle, { color: colors.self }]}>Self</Text>
-                </View>
-                <View style={styles.recoveryRing}>
-                  <View style={[
-                    styles.recoveryProgress,
-                    { 
-                      borderColor: colors.self,
-                      borderWidth: 3,
-                    }
-                  ]}>
-                    <Text style={styles.recoveryScore}>{bioMetrics.recoveryScore}</Text>
-                    <Text style={styles.recoveryLabel}>Recovery</Text>
-                  </View>
-                </View>
-                <View style={styles.widgetStats}>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{bioMetrics.sleepHours}h</Text>
-                    <Text style={styles.statLabel}>Sleep</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{bioMetrics.heartRateResting}</Text>
-                    <Text style={styles.statLabel}>BPM</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{bioMetrics.stepsToday}</Text>
-                    <Text style={styles.statLabel}>Steps</Text>
-                  </View>
-                </View>
-              </>
-            ) : (
-              <WidgetSkeleton accentColor={colors.self} error={errors.bioMetrics} />
-            )}
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Home Widget */}
-        <Animated.View entering={FadeInUp.delay(300).duration(400)}>
-          <TouchableOpacity style={[styles.widget, styles.homeWidget]} activeOpacity={0.7}>
-            {homeStatus ? (
-              <>
-                <View style={styles.widgetHeader}>
-                  <Text style={styles.widgetEmoji}>{getWeatherEmoji(homeStatus.condition)}</Text>
-                  <Text style={[styles.widgetTitle, { color: colors.home }]}>Home</Text>
-                </View>
-                <View style={styles.homeMain}>
-                  <Text style={styles.temperature}>{homeStatus.temperature}°</Text>
-                  <Text style={styles.condition}>{homeStatus.condition}</Text>
-                </View>
-                <View style={styles.securityStatus}>
-                  <View style={[
-                    styles.securityDot,
-                    { backgroundColor: homeStatus.securityStatus === 'secure' ? '#22c55e' : '#ef4444' }
-                  ]} />
-                  <Text style={styles.securityText}>
-                    {homeStatus.securityStatus === 'secure' ? 'Home is Secure' : 'Alert Active'}
-                  </Text>
-                </View>
-              </>
-            ) : (
-              <WidgetSkeleton accentColor={colors.home} error={errors.homeStatus} />
-            )}
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Relationships Widget */}
-        <Animated.View entering={FadeInUp.delay(400).duration(400)}>
-          <TouchableOpacity style={[styles.widget, styles.relWidget]} activeOpacity={0.7}>
-            {relationshipContext ? (
-              <>
-                <View style={styles.widgetHeader}>
-                  <Text style={styles.widgetEmoji}>❤️</Text>
-                  <Text style={[styles.widgetTitle, { color: colors.relationships }]}>Relationships</Text>
-                </View>
-                
-                {relationshipContext.nextMeeting ? (
-                  <View style={styles.relItem}>
-                    <Text style={styles.relLabel}>Next Meeting</Text>
-                    <Text style={styles.relValue}>
-                      {relationshipContext.nextMeeting.name} at {formatTime(relationshipContext.nextMeeting.time)}
-                    </Text>
-                  </View>
+      
+      {/* Content Area */}
+      {viewMode === 'agenda' ? (
+        <DailyAgenda />
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.textSecondary}
+            />
+          }
+        >
+          {/* Widget Grid */}
+          <View style={styles.widgetGrid}>
+            {/* Self / Bio Widget */}
+            <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+              <TouchableOpacity style={[styles.widget, styles.selfWidget]} activeOpacity={0.7}>
+                {bioMetrics ? (
+                  <>
+                    <View style={styles.widgetHeader}>
+                      <Text style={styles.widgetEmoji}>{getMoodEmoji(bioMetrics.mood)}</Text>
+                      <Text style={[styles.widgetTitle, { color: colors.self }]}>Self</Text>
+                    </View>
+                    <View style={styles.recoveryRing}>
+                      <View style={[
+                        styles.recoveryProgress,
+                        { 
+                          borderColor: colors.self,
+                          borderWidth: 3,
+                        }
+                      ]}>
+                        <Text style={styles.recoveryScore}>{bioMetrics.recoveryScore}</Text>
+                        <Text style={styles.recoveryLabel}>Recovery</Text>
+                      </View>
+                    </View>
+                    <View style={styles.widgetStats}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{bioMetrics.sleepHours}h</Text>
+                        <Text style={styles.statLabel}>Sleep</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{bioMetrics.heartRateResting}</Text>
+                        <Text style={styles.statLabel}>BPM</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{bioMetrics.stepsToday}</Text>
+                        <Text style={styles.statLabel}>Steps</Text>
+                      </View>
+                    </View>
+                  </>
                 ) : (
-                  <View style={styles.relItem}>
-                    <Text style={styles.relLabel}>Calendar</Text>
-                    <Text style={styles.relValue}>No meetings today</Text>
-                  </View>
+                  <WidgetSkeleton accentColor={colors.self} error={errors.bioMetrics} />
                 )}
+              </TouchableOpacity>
+            </Animated.View>
 
-                {relationshipContext.overdueContact && (
-                  <View style={[styles.relItem, styles.relWarning]}>
-                    <Text style={styles.relLabel}>Overdue Contact</Text>
-                    <Text style={styles.relValue}>
-                      {relationshipContext.overdueContact.name} ({relationshipContext.overdueContact.daysSinceContact}d)
-                    </Text>
-                  </View>
+            {/* Home Widget */}
+            <Animated.View entering={FadeInUp.delay(200).duration(400)}>
+              <TouchableOpacity style={[styles.widget, styles.homeWidget]} activeOpacity={0.7}>
+                {homeStatus ? (
+                  <>
+                    <View style={styles.widgetHeader}>
+                      <Text style={styles.widgetEmoji}>{getWeatherEmoji(homeStatus.condition)}</Text>
+                      <Text style={[styles.widgetTitle, { color: colors.home }]}>Home</Text>
+                    </View>
+                    <View style={styles.homeMain}>
+                      <Text style={styles.temperature}>{homeStatus.temperature}°</Text>
+                      <Text style={styles.condition}>{homeStatus.condition}</Text>
+                    </View>
+                    <View style={styles.securityStatus}>
+                      <View style={[
+                        styles.securityDot,
+                        { backgroundColor: homeStatus.securityStatus === 'secure' ? '#22c55e' : '#ef4444' }
+                      ]} />
+                      <Text style={styles.securityText}>
+                        {homeStatus.securityStatus === 'secure' ? 'Home is Secure' : 'Alert Active'}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <WidgetSkeleton accentColor={colors.home} error={errors.homeStatus} />
                 )}
+              </TouchableOpacity>
+            </Animated.View>
 
-                {relationshipContext.upcomingAnniversary && (
-                  <View style={styles.relItem}>
-                    <Text style={styles.relLabel}>Coming Up</Text>
-                    <Text style={styles.relValue}>
-                      🎂 {relationshipContext.upcomingAnniversary.name}'s anniversary in {relationshipContext.upcomingAnniversary.daysUntil}d
-                    </Text>
-                  </View>
+            {/* Relationships Widget */}
+            <Animated.View entering={FadeInUp.delay(300).duration(400)}>
+              <TouchableOpacity style={[styles.widget, styles.relWidget]} activeOpacity={0.7}>
+                {relationshipContext ? (
+                  <>
+                    <View style={styles.widgetHeader}>
+                      <Text style={styles.widgetEmoji}>❤️</Text>
+                      <Text style={[styles.widgetTitle, { color: colors.relationships }]}>Relationships</Text>
+                    </View>
+                    
+                    {relationshipContext.nextMeeting ? (
+                      <View style={styles.relItem}>
+                        <Text style={styles.relLabel}>Next Meeting</Text>
+                        <Text style={styles.relValue}>
+                          {relationshipContext.nextMeeting.name} at {formatTime(relationshipContext.nextMeeting.time)}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.relItem}>
+                        <Text style={styles.relLabel}>Calendar</Text>
+                        <Text style={styles.relValue}>No meetings today</Text>
+                      </View>
+                    )}
+
+                    {relationshipContext.overdueContact && (
+                      <View style={[styles.relItem, styles.relWarning]}>
+                        <Text style={styles.relLabel}>Overdue Contact</Text>
+                        <Text style={styles.relValue}>
+                          {relationshipContext.overdueContact.name} ({relationshipContext.overdueContact.daysSinceContact}d)
+                        </Text>
+                      </View>
+                    )}
+
+                    {relationshipContext.upcomingAnniversary && (
+                      <View style={styles.relItem}>
+                        <Text style={styles.relLabel}>Coming Up</Text>
+                        <Text style={styles.relValue}>
+                          🎂 {relationshipContext.upcomingAnniversary.name}'s anniversary in {relationshipContext.upcomingAnniversary.daysUntil}d
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <WidgetSkeleton accentColor={colors.relationships} error={errors.relationshipContext} />
                 )}
-              </>
-            ) : (
-              <WidgetSkeleton accentColor={colors.relationships} error={errors.relationshipContext} />
-            )}
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
 
-      {/* Bottom hint */}
-      <Animated.View entering={FadeIn.delay(600).duration(400)} style={styles.hintContainer}>
-        <Text style={styles.hint}>Swipe the orb to explore circles</Text>
-      </Animated.View>
-    </ScrollView>
+          {/* Bottom hint */}
+          <Animated.View entering={FadeIn.delay(500).duration(400)} style={styles.hintContainer}>
+            <Text style={styles.hint}>Swipe the orb to explore circles</Text>
+          </Animated.View>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -394,65 +474,53 @@ const skeletonStyles = StyleSheet.create({
 // ============================================
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 120,
+    paddingHorizontal: spacing.lg,
   },
+  
+  // Header
   header: {
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
     paddingTop: 60,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  settingsButton: {
-    padding: 8,
-    marginTop: 4,
-  },
-  settingsIcon: {
-    fontSize: 24,
-  },
-  mockDataBanner: {
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  mockDataText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  greeting: {
-    fontSize: 32,
-    fontWeight: '300',
-    color: colors.textPrimary,
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginTop: 8,
-    letterSpacing: 0.5,
-  },
-  syncContainer: {
     alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 24,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  syncTouchable: {
+    position: 'relative',
+    width: SYNC_BUTTON_SIZE,
+    height: SYNC_BUTTON_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   syncGlow: {
     position: 'absolute',
-    width: SYNC_BUTTON_SIZE * 1.5,
-    height: SYNC_BUTTON_SIZE * 1.5,
+    width: SYNC_BUTTON_SIZE * 1.3,
+    height: SYNC_BUTTON_SIZE * 1.3,
     borderRadius: SYNC_BUTTON_SIZE,
     backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    top: -SYNC_BUTTON_SIZE * 0.25,
-    left: -SYNC_BUTTON_SIZE * 0.25,
   },
   syncButton: {
     width: SYNC_BUTTON_SIZE,
@@ -464,51 +532,90 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  syncInner: {
-    width: SYNC_BUTTON_SIZE - 20,
-    height: SYNC_BUTTON_SIZE - 20,
-    borderRadius: (SYNC_BUTTON_SIZE - 20) / 2,
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   syncIcon: {
-    fontSize: 32,
+    fontSize: 24,
     color: colors.self,
   },
+  settingsButton: {
+    padding: spacing.xs,
+  },
+  settingsIcon: {
+    fontSize: 20,
+  },
+  mockDataPill: {
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  mockDataText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+  },
   syncStatus: {
-    marginTop: 16,
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: spacing.sm,
+  },
+  
+  // View Toggle
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xs,
+    marginTop: spacing.md,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  toggleButtonActive: {
+    backgroundColor: colors.surfaceElevated,
+  },
+  toggleText: {
     fontSize: 14,
     color: colors.textSecondary,
   },
+  toggleTextActive: {
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  
+  // Widgets
   widgetGrid: {
-    paddingHorizontal: 16,
-    gap: 16,
+    gap: spacing.md,
+    paddingTop: spacing.md,
   },
   widget: {
-    padding: 20,
-    borderRadius: 20,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   selfWidget: {
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
     borderLeftColor: colors.self,
   },
   homeWidget: {
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
     borderLeftColor: colors.home,
   },
   relWidget: {
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
     borderLeftColor: colors.relationships,
   },
   widgetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   widgetEmoji: {
     fontSize: 20,
@@ -520,7 +627,7 @@ const styles = StyleSheet.create({
   },
   recoveryRing: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   recoveryProgress: {
     width: 80,
@@ -558,7 +665,7 @@ const styles = StyleSheet.create({
   },
   homeMain: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   temperature: {
     fontSize: 48,
@@ -568,13 +675,13 @@ const styles = StyleSheet.create({
   condition: {
     fontSize: 16,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   securityStatus: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   securityDot: {
     width: 8,
@@ -586,19 +693,19 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   relItem: {
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   relWarning: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    marginHorizontal: -12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    marginHorizontal: -spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
   },
   relLabel: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   relValue: {
     fontSize: 15,
@@ -606,12 +713,12 @@ const styles = StyleSheet.create({
   },
   hintContainer: {
     alignItems: 'center',
-    paddingTop: 32,
-    paddingBottom: 20,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textTertiary,
     letterSpacing: 0.5,
   },
 });
