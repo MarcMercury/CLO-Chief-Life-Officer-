@@ -80,6 +80,7 @@ export default function HomeView() {
   const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
   const [newPropertyName, setNewPropertyName] = useState('');
+  const [newPropertyAddress, setNewPropertyAddress] = useState('');
   const [newPropertyIcon, setNewPropertyIcon] = useState('🏠');
   const [newPropertyType, setNewPropertyType] = useState<'home' | 'vacation' | 'rental' | 'office' | 'storage' | 'vehicle' | 'other'>('home');
   
@@ -782,38 +783,51 @@ export default function HomeView() {
           onPress={() => setShowAddPropertyModal(false)}
         >
           <Pressable style={styles.addPropertyModal} onPress={e => e.stopPropagation()}>
-            <Text style={styles.addPropertyModalTitle}>Add Property</Text>
-            
-            {/* Property Icon Selector */}
-            <Text style={styles.addPropertyLabel}>Choose Icon</Text>
-            <View style={styles.iconGrid}>
-              {['🏠', '🏡', '🏢', '🏬', '🏭', '🛖', '⛺', '🏕️', '🏖️', '🏝️', '🚗', '🏗️'].map((icon) => (
-                <TouchableOpacity
-                  key={icon}
-                  style={[
-                    styles.iconOption,
-                    newPropertyIcon === icon && styles.iconOptionSelected,
-                  ]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setNewPropertyIcon(icon);
-                  }}
-                >
-                  <Text style={styles.iconOptionText}>{icon}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            
-            {/* Property Name Input */}
-            <Text style={styles.addPropertyLabel}>Property Name</Text>
-            <TextInput
-              style={styles.addPropertyInput}
-              placeholder="e.g., Beach House, Office"
-              placeholderTextColor="#666"
-              value={newPropertyName}
-              onChangeText={setNewPropertyName}
-              autoFocus
-            />
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.addPropertyModalScroll}>
+              <Text style={styles.addPropertyModalTitle}>Add Property</Text>
+              
+              {/* Property Name Input */}
+              <Text style={styles.addPropertyLabel}>Property Name *</Text>
+              <TextInput
+                style={styles.addPropertyInput}
+                placeholder="e.g., Beach House, Office"
+                placeholderTextColor="#666"
+                value={newPropertyName}
+                onChangeText={setNewPropertyName}
+                autoFocus
+              />
+              
+              {/* Property Address Input */}
+              <Text style={styles.addPropertyLabel}>Address</Text>
+              <TextInput
+                style={[styles.addPropertyInput, styles.addressInput]}
+                placeholder="123 Main St, City, State ZIP"
+                placeholderTextColor="#666"
+                value={newPropertyAddress}
+                onChangeText={setNewPropertyAddress}
+                multiline
+                numberOfLines={2}
+              />
+              
+              {/* Property Icon Selector */}
+              <Text style={styles.addPropertyLabel}>Choose Icon</Text>
+              <View style={styles.iconGrid}>
+                {['🏠', '🏡', '🏢', '🏬', '🏭', '🛖', '⛺', '🏕️', '🏖️', '🏝️', '🚗', '🏗️'].map((icon) => (
+                  <TouchableOpacity
+                    key={icon}
+                    style={[
+                      styles.iconOption,
+                      newPropertyIcon === icon && styles.iconOptionSelected,
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setNewPropertyIcon(icon);
+                    }}
+                  >
+                    <Text style={styles.iconOptionText}>{icon}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             
             {/* Property Type Selector */}
             <Text style={styles.addPropertyLabel}>Property Type</Text>
@@ -861,6 +875,7 @@ export default function HomeView() {
                 onPress={() => {
                   setShowAddPropertyModal(false);
                   setNewPropertyName('');
+                  setNewPropertyAddress('');
                   setNewPropertyIcon('🏠');
                   setNewPropertyType('home');
                 }}
@@ -877,6 +892,7 @@ export default function HomeView() {
                 onPress={async () => {
                   const result = await createPropertyMutation.mutateAsync({
                     name: newPropertyName.trim(),
+                    address: newPropertyAddress.trim() || undefined,
                     icon: newPropertyIcon,
                     type: newPropertyType,
                   });
@@ -885,6 +901,7 @@ export default function HomeView() {
                   }
                   setShowAddPropertyModal(false);
                   setNewPropertyName('');
+                  setNewPropertyAddress('');
                   setNewPropertyIcon('🏠');
                   setNewPropertyType('home');
                 }}
@@ -894,6 +911,7 @@ export default function HomeView() {
                 </Text>
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1052,8 +1070,16 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '90%',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+  },
+  addPropertyModalScroll: {
+    flexGrow: 0,
+  },
+  addressInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
   addPropertyModalTitle: {
     fontSize: 20,
