@@ -15,20 +15,56 @@ CREATE TABLE IF NOT EXISTS properties (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Add property_id to existing HomeOS tables
-ALTER TABLE inventory ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
-ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
-ALTER TABLE service_logs ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
-ALTER TABLE maintenance_schedules ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
+-- Add property_id to existing HomeOS tables (use DO block to handle missing tables gracefully)
+DO $$ 
+BEGIN
+  -- home_inventory
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'home_inventory') THEN
+    ALTER TABLE home_inventory ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
+  END IF;
+  
+  -- subscriptions
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'subscriptions') THEN
+    ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
+  END IF;
+  
+  -- vendors
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'vendors') THEN
+    ALTER TABLE vendors ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
+  END IF;
+  
+  -- service_logs
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'service_logs') THEN
+    ALTER TABLE service_logs ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
+  END IF;
+  
+  -- maintenance_schedules
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'maintenance_schedules') THEN
+    ALTER TABLE maintenance_schedules ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES properties(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
--- Indexes
+-- Indexes (only create if tables exist)
 CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_property_id ON inventory(property_id);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_property_id ON subscriptions(property_id);
-CREATE INDEX IF NOT EXISTS idx_vendors_property_id ON vendors(property_id);
-CREATE INDEX IF NOT EXISTS idx_service_logs_property_id ON service_logs(property_id);
-CREATE INDEX IF NOT EXISTS idx_maintenance_schedules_property_id ON maintenance_schedules(property_id);
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'home_inventory') THEN
+    CREATE INDEX IF NOT EXISTS idx_home_inventory_property_id ON home_inventory(property_id);
+  END IF;
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'subscriptions') THEN
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_property_id ON subscriptions(property_id);
+  END IF;
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'vendors') THEN
+    CREATE INDEX IF NOT EXISTS idx_vendors_property_id ON vendors(property_id);
+  END IF;
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'service_logs') THEN
+    CREATE INDEX IF NOT EXISTS idx_service_logs_property_id ON service_logs(property_id);
+  END IF;
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'maintenance_schedules') THEN
+    CREATE INDEX IF NOT EXISTS idx_maintenance_schedules_property_id ON maintenance_schedules(property_id);
+  END IF;
+END $$;
 
 -- Enable RLS
 ALTER TABLE properties ENABLE ROW LEVEL SECURITY;
