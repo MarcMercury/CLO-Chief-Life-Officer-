@@ -1,36 +1,16 @@
-import { createClient } from "@supabase/supabase-js";
-import Constants from "expo-constants";
+/**
+ * HomeOS Supabase Client
+ * 
+ * Re-exports the main Supabase client for HomeOS/Home features.
+ * All home management data is stored in the main CLO Supabase project.
+ */
 
-// HomeOS uses a separate Supabase project for home management data
-const supabaseUrl =
-  Constants.expoConfig?.extra?.homeosSupabaseUrl ||
-  process.env.EXPO_PUBLIC_HOMEOS_SUPABASE_URL ||
-  "";
+import { supabase } from './supabase';
 
-const supabaseAnonKey =
-  Constants.expoConfig?.extra?.homeosSupabaseAnonKey ||
-  process.env.EXPO_PUBLIC_HOMEOS_SUPABASE_ANON_KEY ||
-  "";
+// Re-export main supabase client as homeosSupabase for backward compatibility
+export const homeosSupabase = supabase;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    "HomeOS Supabase credentials not configured. Home features will not work."
-  );
-}
-
-export const homeosSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    // HomeOS shares auth with main Supabase project
-    // We'll pass the auth token from the main client
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
-
-// Helper to set auth token from main Supabase session
-export const setHomeosAuthToken = async (accessToken: string) => {
-  await homeosSupabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: "", // Not needed since we manage auth in main project
-  });
+// No-op for backward compatibility - auth is already managed by main client
+export const setHomeosAuthToken = async (_accessToken: string) => {
+  // Auth is managed by the main supabase client, no action needed
 };

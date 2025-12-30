@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp, FadeInRight } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { AddInventoryModal, AddSubscriptionModal } from '../components/home';
+import { AddInventoryModal, AddSubscriptionModal, AddVendorModal, AddWikiModal } from '../components/home';
 import { 
   useInventory, 
   useSubscriptions, 
@@ -66,6 +66,9 @@ export default function HomeView() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showAddModal, setShowAddModal] = useState(false);
   const [addModalType, setAddModalType] = useState<'inventory' | 'subscription'>('inventory');
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [showWikiModal, setShowWikiModal] = useState(false);
+  const [wikiEntries, setWikiEntries] = useState(MOCK_WIKI_ENTRIES);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeProperty, setActiveProperty] = useState('Main House');
   
@@ -148,6 +151,25 @@ export default function HomeView() {
         },
       ]
     );
+  }, []);
+
+  const openVendorModal = useCallback(() => {
+    setShowVendorModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const openWikiModal = useCallback(() => {
+    setShowWikiModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const handleAddWikiEntry = useCallback((entry: { category: string; title: string; content: string }) => {
+    const newEntry = {
+      id: Date.now().toString(),
+      ...entry,
+    };
+    setWikiEntries(prev => [...prev, newEntry]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
   // Filter functions
@@ -483,6 +505,10 @@ export default function HomeView() {
           <Text style={styles.emptyText}>Add vendors as you hire them</Text>
         </View>
       )}
+
+      <TouchableOpacity style={styles.addWikiBtn} onPress={openVendorModal}>
+        <Text style={styles.addWikiBtnText}>+ Add Vendor</Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 
@@ -493,7 +519,7 @@ export default function HomeView() {
         Your household manual – all the info everyone needs in one place.
       </Text>
 
-      {MOCK_WIKI_ENTRIES.map((entry, i) => (
+      {wikiEntries.map((entry, i) => (
         <Animated.View key={entry.id} entering={FadeInUp.delay(i * 50).duration(300)}>
           <TouchableOpacity style={styles.wikiCard}>
             <View style={styles.wikiHeader}>
@@ -505,7 +531,7 @@ export default function HomeView() {
         </Animated.View>
       ))}
 
-      <TouchableOpacity style={styles.addWikiBtn}>
+      <TouchableOpacity style={styles.addWikiBtn} onPress={openWikiModal}>
         <Text style={styles.addWikiBtnText}>+ Add Entry</Text>
       </TouchableOpacity>
 
@@ -640,6 +666,15 @@ export default function HomeView() {
       <AddSubscriptionModal 
         visible={showAddModal && addModalType === 'subscription'} 
         onClose={() => setShowAddModal(false)} 
+      />
+      <AddVendorModal 
+        visible={showVendorModal} 
+        onClose={() => setShowVendorModal(false)} 
+      />
+      <AddWikiModal 
+        visible={showWikiModal} 
+        onClose={() => setShowWikiModal(false)}
+        onSave={handleAddWikiEntry}
       />
     </View>
   );

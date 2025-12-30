@@ -2,7 +2,7 @@
  * HomeOS Service
  * 
  * API layer for the CHO (Chief Household Officer) Dashboard.
- * Uses the HomeOS Supabase project for data storage.
+ * Uses the main CLO Supabase project for data storage.
  */
 
 import { homeosSupabase as supabase } from '@/lib/homeosSupabase';
@@ -35,7 +35,15 @@ export async function getInventoryItems(): Promise<HomeInventoryItem[]> {
     console.error('Failed to fetch inventory:', error);
     return [];
   }
-  return data || [];
+  
+  // Transform database columns to TypeScript interface fields
+  return (data || []).map((item: any) => ({
+    ...item,
+    name: item.product_name,
+    location_in_home: item.location,
+    warranty_expires: item.warranty_expiration,
+    photo_url: item.product_image_url,
+  }));
 }
 
 export async function getInventoryItem(id: string): Promise<HomeInventoryItem | null> {
@@ -54,9 +62,9 @@ export async function getInventoryItem(id: string): Promise<HomeInventoryItem | 
 
 export async function createInventoryItem(
   input: CreateInventoryItemInput
-): Promise<{ data: HomeInventoryItem | null; error: string | null }> {
+): Promise<HomeInventoryItem> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
+  if (!user) throw new Error('Not authenticated');
 
   const { data, error } = await (supabase as any)
     .from('home_inventory')
@@ -80,9 +88,17 @@ export async function createInventoryItem(
 
   if (error) {
     console.error('Failed to create inventory item:', error);
-    return { data: null, error: error.message };
+    throw new Error(error.message);
   }
-  return { data, error: null };
+  
+  // Transform to match TypeScript interface
+  return {
+    ...data,
+    name: data.product_name,
+    location_in_home: data.location,
+    warranty_expires: data.warranty_expiration,
+    photo_url: data.product_image_url,
+  };
 }
 
 export async function updateInventoryItem(
@@ -139,7 +155,14 @@ export async function getSubscriptions(): Promise<Subscription[]> {
     console.error('Failed to fetch subscriptions:', error);
     return [];
   }
-  return data || [];
+  
+  // Transform database columns to TypeScript interface fields
+  return (data || []).map((item: any) => ({
+    ...item,
+    name: item.service_name,
+    frequency: item.billing_cycle,
+    is_active: item.status === 'ACTIVE',
+  }));
 }
 
 export async function getSubscription(id: string): Promise<Subscription | null> {
@@ -158,9 +181,9 @@ export async function getSubscription(id: string): Promise<Subscription | null> 
 
 export async function createSubscription(
   input: CreateSubscriptionInput
-): Promise<{ data: Subscription | null; error: string | null }> {
+): Promise<Subscription> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
+  if (!user) throw new Error('Not authenticated');
 
   const { data, error } = await (supabase as any)
     .from('subscriptions')
@@ -179,9 +202,16 @@ export async function createSubscription(
 
   if (error) {
     console.error('Failed to create subscription:', error);
-    return { data: null, error: error.message };
+    throw new Error(error.message);
   }
-  return { data, error: null };
+  
+  // Transform to match TypeScript interface
+  return {
+    ...data,
+    name: data.service_name,
+    frequency: data.billing_cycle,
+    is_active: data.status === 'ACTIVE',
+  };
 }
 
 export async function updateSubscription(
@@ -235,7 +265,12 @@ export async function getVendors(): Promise<Vendor[]> {
     console.error('Failed to fetch vendors:', error);
     return [];
   }
-  return data || [];
+  
+  // Transform database columns to TypeScript interface fields
+  return (data || []).map((item: any) => ({
+    ...item,
+    name: item.company_name,
+  }));
 }
 
 export async function getVendor(id: string): Promise<Vendor | null> {
@@ -271,9 +306,9 @@ export async function searchVendors(searchTerm: string): Promise<VendorSearchRes
 
 export async function createVendor(
   input: CreateVendorInput
-): Promise<{ data: Vendor | null; error: string | null }> {
+): Promise<Vendor> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: 'Not authenticated' };
+  if (!user) throw new Error('Not authenticated');
 
   const { data, error } = await (supabase as any)
     .from('vendors')
@@ -293,9 +328,14 @@ export async function createVendor(
 
   if (error) {
     console.error('Failed to create vendor:', error);
-    return { data: null, error: error.message };
+    throw new Error(error.message);
   }
-  return { data, error: null };
+  
+  // Transform to match TypeScript interface
+  return {
+    ...data,
+    name: data.company_name,
+  };
 }
 
 export async function updateVendor(

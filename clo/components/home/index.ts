@@ -9,4 +9,6 @@ export { AddInventoryModal } from './AddInventoryModal';
 export { SubscriptionSection } from './SubscriptionSection';
 export { AddSubscriptionModal } from './AddSubscriptionModal';
 export { VendorSection } from './VendorSection';
+export { AddVendorModal } from './AddVendorModal';
 export { MaintenanceSection } from './MaintenanceSection';
+export { AddWikiModal } from './AddWikiModal';
