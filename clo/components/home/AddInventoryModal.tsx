@@ -34,6 +34,48 @@ const CATEGORIES: { value: InventoryCategory; label: string; icon: string }[] = 
   { value: 'other', label: 'Other', icon: '📦' },
 ];
 
+// Parse various date formats to YYYY-MM-DD
+function parseDate(input: string | undefined): string | undefined {
+  if (!input) return undefined;
+  
+  const cleaned = input.trim();
+  if (!cleaned) return undefined;
+  
+  // Already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+    return cleaned;
+  }
+  
+  // MM/DD/YYYY or M/D/YYYY
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleaned)) {
+    const [m, d, y] = cleaned.split('/');
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  
+  // MM-DD-YYYY
+  if (/^\d{2}-\d{2}-\d{4}$/.test(cleaned)) {
+    const [m, d, y] = cleaned.split('-');
+    return `${y}-${m}-${d}`;
+  }
+  
+  // MMDDYYYY (8 digits, no separators)
+  if (/^\d{8}$/.test(cleaned)) {
+    const m = cleaned.substring(0, 2);
+    const d = cleaned.substring(2, 4);
+    const y = cleaned.substring(4, 8);
+    return `${y}-${m}-${d}`;
+  }
+  
+  // Try to parse as a date string
+  const date = new Date(cleaned);
+  if (!isNaN(date.getTime())) {
+    return date.toISOString().split('T')[0];
+  }
+  
+  // Return undefined if we can't parse it
+  return undefined;
+}
+
 interface AddInventoryModalProps {
   visible: boolean;
   onClose: () => void;
@@ -75,16 +117,19 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
     }
 
     try {
+      const purchaseDate = parseDate(formData.purchase_date);
+      const warrantyExpires = parseDate(formData.warranty_expires);
+      
       await createItem.mutateAsync({
         name: formData.name!,
         category: formData.category!,
         brand: formData.brand || undefined,
         model_number: formData.model_number || undefined,
         serial_number: formData.serial_number || undefined,
-        purchase_date: formData.purchase_date || undefined,
+        purchase_date: purchaseDate,
         purchase_price: formData.purchase_price || undefined,
         purchase_location: formData.purchase_location || undefined,
-        warranty_expires: formData.warranty_expires || undefined,
+        warranty_expires: warrantyExpires,
         notes: formData.notes || undefined,
         location_in_home: formData.location_in_home || undefined,
         barcode: formData.barcode || undefined,
@@ -248,7 +293,7 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
                   <Text style={styles.label}>Purchase Date</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="YYYY-MM-DD"
+                    placeholder="MM/DD/YYYY"
                     placeholderTextColor={colors.textTertiary}
                     value={formData.purchase_date || ''}
                     onChangeText={(v) => updateField('purchase_date', v)}
@@ -284,7 +329,7 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
                 <Text style={styles.label}>Warranty Expires</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="YYYY-MM-DD"
+                  placeholder="MM/DD/YYYY"
                   placeholderTextColor={colors.textTertiary}
                   value={formData.warranty_expires || ''}
                   onChangeText={(v) => updateField('warranty_expires', v)}
