@@ -362,6 +362,19 @@ export async function updateVendor(
   return { success: true, error: null };
 }
 
+export async function deleteVendor(id: string): Promise<{ success: boolean; error: string | null }> {
+  const { error } = await (supabase as any)
+    .from('vendors')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Failed to delete vendor:', error);
+    return { success: false, error: error.message };
+  }
+  return { success: true, error: null };
+}
+
 // ============================================
 // SERVICE LOG OPERATIONS
 // ============================================

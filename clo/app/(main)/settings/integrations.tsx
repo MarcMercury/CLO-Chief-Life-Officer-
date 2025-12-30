@@ -44,6 +44,8 @@ export default function IntegrationsScreen() {
     health: integrationList.filter(i => i.category === 'health'),
     music: integrationList.filter(i => i.category === 'music'),
     home: integrationList.filter(i => i.category === 'home'),
+    finance: integrationList.filter(i => i.category === 'finance'),
+    contacts: integrationList.filter(i => i.category === 'contacts'),
   };
 
   const handleRefresh = async () => {
@@ -167,6 +169,38 @@ export default function IntegrationsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🏠 Smart Home</Text>
           {categories.home.map(item => (
+            <IntegrationCard
+              key={item.provider}
+              config={item}
+              integration={item.integration}
+              connected={item.connected}
+              onConnect={(apiKey) => handleConnect(item.provider, apiKey)}
+              onDisconnect={() => handleDisconnect(item.provider)}
+              isLoading={isSaving || isDisconnecting}
+            />
+          ))}
+        </View>
+
+        {/* Finance */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>💰 Finance & Budget</Text>
+          {categories.finance.map(item => (
+            <IntegrationCard
+              key={item.provider}
+              config={item}
+              integration={item.integration}
+              connected={item.connected}
+              onConnect={(apiKey) => handleConnect(item.provider, apiKey)}
+              onDisconnect={() => handleDisconnect(item.provider)}
+              isLoading={isSaving || isDisconnecting}
+            />
+          ))}
+        </View>
+
+        {/* Contacts */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>👥 Contacts & Relationships</Text>
+          {categories.contacts.map(item => (
             <IntegrationCard
               key={item.provider}
               config={item}

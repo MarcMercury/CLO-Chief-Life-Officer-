@@ -8,11 +8,20 @@ import Animated, {
   withSequence,
   runOnJS,
 } from 'react-native-reanimated';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import haptics from '@/lib/haptics';
 import { useUIStore, ActiveCircle } from '../../store/uiStore';
+import { colors } from '@/constants/theme';
 
 const SWIPE_THRESHOLD = 50;
 const ORB_SIZE = 64;
+
+// Venn diagram circle dimensions
+const VENN_CIRCLE_RADIUS = 85;
+const VENN_STROKE_WIDTH = 1.5;
+const SVG_SIZE = 320;
+const CENTER_X = SVG_SIZE / 2;
+const CENTER_Y = SVG_SIZE / 2 + 15; // Slightly lower to account for top circle
 
 export default function OrbitalControl() {
   const { activeCircle, setActiveCircle, themeColors } = useUIStore();
@@ -100,16 +109,104 @@ export default function OrbitalControl() {
       default: return '◯';
     }
   };
+
+  // Calculate circle positions for proper Venn intersection
+  // All three circles meet in the center
+  const circleOffset = VENN_CIRCLE_RADIUS * 0.55;
+  
+  // Self circle - bottom left
+  const selfX = CENTER_X - circleOffset * 0.87;
+  const selfY = CENTER_Y + circleOffset * 0.5;
+  
+  // Relationships circle - bottom right
+  const relX = CENTER_X + circleOffset * 0.87;
+  const relY = CENTER_Y + circleOffset * 0.5;
+  
+  // Home circle - top center
+  const homeX = CENTER_X;
+  const homeY = CENTER_Y - circleOffset;
+
+  // Get opacity based on active state
+  const getCircleOpacity = (circle: ActiveCircle) => {
+    return activeCircle === circle ? 0.25 : 0.08;
+  };
+
+  const getStrokeOpacity = (circle: ActiveCircle) => {
+    return activeCircle === circle ? 0.9 : 0.4;
+  };
   
   return (
     <View style={styles.container}>
-      {/* Direction hints */}
-      <View style={styles.hintsContainer}>
-        <Text style={[styles.hint, styles.hintLeft]}>← Self</Text>
-        <Text style={[styles.hint, styles.hintRight]}>Relationships →</Text>
-        <Text style={[styles.hint, styles.hintTop]}>↑ Home</Text>
+      {/* Venn Diagram Background */}
+      <View style={styles.vennContainer}>
+        <Svg width={SVG_SIZE} height={SVG_SIZE} style={styles.vennSvg}>
+          <Defs>
+            {/* Self gradient */}
+            <RadialGradient id="selfGradient" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={colors.self} stopOpacity={getCircleOpacity('SELF') * 1.5} />
+              <Stop offset="100%" stopColor={colors.self} stopOpacity={0} />
+            </RadialGradient>
+            {/* Relationships gradient */}
+            <RadialGradient id="relGradient" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={colors.relationships} stopOpacity={getCircleOpacity('RELATIONSHIPS') * 1.5} />
+              <Stop offset="100%" stopColor={colors.relationships} stopOpacity={0} />
+            </RadialGradient>
+            {/* Home gradient */}
+            <RadialGradient id="homeGradient" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={colors.home} stopOpacity={getCircleOpacity('HOME') * 1.5} />
+              <Stop offset="100%" stopColor={colors.home} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+
+          {/* Self Circle - Bottom Left */}
+          <Circle
+            cx={selfX}
+            cy={selfY}
+            r={VENN_CIRCLE_RADIUS}
+            fill="url(#selfGradient)"
+            stroke={colors.self}
+            strokeWidth={VENN_STROKE_WIDTH}
+            strokeOpacity={getStrokeOpacity('SELF')}
+          />
+          
+          {/* Relationships Circle - Bottom Right */}
+          <Circle
+            cx={relX}
+            cy={relY}
+            r={VENN_CIRCLE_RADIUS}
+            fill="url(#relGradient)"
+            stroke={colors.relationships}
+            strokeWidth={VENN_STROKE_WIDTH}
+            strokeOpacity={getStrokeOpacity('RELATIONSHIPS')}
+          />
+          
+          {/* Home Circle - Top Center */}
+          <Circle
+            cx={homeX}
+            cy={homeY}
+            r={VENN_CIRCLE_RADIUS}
+            fill="url(#homeGradient)"
+            stroke={colors.home}
+            strokeWidth={VENN_STROKE_WIDTH}
+            strokeOpacity={getStrokeOpacity('HOME')}
+          />
+        </Svg>
+
+        {/* Direction labels positioned around Venn diagram */}
+        <View style={styles.labelsContainer}>
+          <Text style={[styles.label, styles.labelLeft, { color: colors.self }]}>
+            ← Self
+          </Text>
+          <Text style={[styles.label, styles.labelRight, { color: colors.relationships }]}>
+            Relationships →
+          </Text>
+          <Text style={[styles.label, styles.labelTop, { color: colors.home }]}>
+            ↑ Home
+          </Text>
+        </View>
       </View>
       
+      {/* Center Orb - Gesture Controller */}
       <GestureDetector gesture={composedGesture}>
         <Animated.View 
           style={[
@@ -130,53 +227,65 @@ export default function OrbitalControl() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 20,
     left: 0,
     right: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 100,
+    height: 200,
   },
-  hintsContainer: {
+  vennContainer: {
     position: 'absolute',
-    width: 300,
-    height: 100,
+    width: SVG_SIZE,
+    height: SVG_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  hint: {
+  vennSvg: {
     position: 'absolute',
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.2)',
+  },
+  labelsContainer: {
+    position: 'absolute',
+    width: SVG_SIZE,
+    height: SVG_SIZE,
+  },
+  label: {
+    position: 'absolute',
+    fontSize: 13,
+    fontWeight: '500',
     letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  hintLeft: {
-    left: 0,
-    top: '50%',
-    transform: [{ translateY: -6 }],
+  labelLeft: {
+    left: 10,
+    top: '55%',
   },
-  hintRight: {
-    right: 0,
-    top: '50%',
-    transform: [{ translateY: -6 }],
+  labelRight: {
+    right: 5,
+    top: '55%',
   },
-  hintTop: {
-    top: 0,
+  labelTop: {
+    top: 20,
     left: '50%',
-    transform: [{ translateX: -20 }],
+    transform: [{ translateX: -25 }],
   },
   orb: {
     width: ORB_SIZE,
     height: ORB_SIZE,
     borderRadius: ORB_SIZE / 2,
-    backgroundColor: 'rgba(30, 30, 30, 0.9)',
+    backgroundColor: 'rgba(20, 20, 20, 0.95)',
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    // Subtle glow effect
+    // Glow effect
     shadowColor: '#fff',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 10,
   },
   orbText: {
     fontSize: 16,

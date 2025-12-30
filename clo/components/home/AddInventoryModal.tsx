@@ -1,10 +1,10 @@
 /**
  * AddInventoryModal Component
  * 
- * Modal for adding new inventory items with optional barcode scanning.
+ * Modal for adding/editing inventory items with optional barcode scanning.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,10 +18,11 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
-import { useCreateInventoryItem } from '@/hooks/useHomeOS';
-import { InventoryCategory, CreateInventoryItemInput } from '@/types/homeos';
+import { useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem } from '@/hooks/useHomeOS';
+import { InventoryCategory, CreateInventoryItemInput, HomeInventoryItem } from '@/types/homeos';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
+import { formatDateInput, parseDateInput, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 
 const CATEGORIES: { value: InventoryCategory; label: string; icon: string }[] = [
   { value: 'appliance', label: 'Appliance', icon: '🔌' },
@@ -34,60 +35,53 @@ const CATEGORIES: { value: InventoryCategory; label: string; icon: string }[] = 
   { value: 'other', label: 'Other', icon: '📦' },
 ];
 
-// Parse various date formats to YYYY-MM-DD
-function parseDate(input: string | undefined): string | undefined {
-  if (!input) return undefined;
-  
-  const cleaned = input.trim();
-  if (!cleaned) return undefined;
-  
-  // Already in YYYY-MM-DD format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
-    return cleaned;
-  }
-  
-  // MM/DD/YYYY or M/D/YYYY
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(cleaned)) {
-    const [m, d, y] = cleaned.split('/');
-    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  }
-  
-  // MM-DD-YYYY
-  if (/^\d{2}-\d{2}-\d{4}$/.test(cleaned)) {
-    const [m, d, y] = cleaned.split('-');
-    return `${y}-${m}-${d}`;
-  }
-  
-  // MMDDYYYY (8 digits, no separators)
-  if (/^\d{8}$/.test(cleaned)) {
-    const m = cleaned.substring(0, 2);
-    const d = cleaned.substring(2, 4);
-    const y = cleaned.substring(4, 8);
-    return `${y}-${m}-${d}`;
-  }
-  
-  // Try to parse as a date string
-  const date = new Date(cleaned);
-  if (!isNaN(date.getTime())) {
-    return date.toISOString().split('T')[0];
-  }
-  
-  // Return undefined if we can't parse it
-  return undefined;
-}
-
 interface AddInventoryModalProps {
   visible: boolean;
   onClose: () => void;
+  editItem?: HomeInventoryItem | null;
 }
 
-export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) {
+export function AddInventoryModal({ visible, onClose, editItem }: AddInventoryModalProps) {
   const createItem = useCreateInventoryItem();
+  const updateItem = useUpdateInventoryItem();
+  const deleteItem = useDeleteInventoryItem();
+  
+  const isEditMode = !!editItem;
   
   const [formData, setFormData] = useState<Partial<CreateInventoryItemInput>>({
     category: 'other',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editItem) {
+      setFormData({
+        name: editItem.name,
+        category: editItem.category,
+        brand: editItem.brand || '',
+        model_number: editItem.model_number || '',
+        serial_number: editItem.serial_number || '',
+        purchase_date: editItem.purchase_date ? formatDateFromDB(editItem.purchase_date) : '',
+        purchase_price: editItem.purchase_price?.toString() || '',
+        purchase_location: editItem.purchase_location || '',
+        warranty_expires: editItem.warranty_expires ? formatDateFromDB(editItem.warranty_expires) : '',
+        notes: editItem.notes || '',
+        location_in_home: editItem.location_in_home || '',
+        barcode: editItem.barcode || '',
+      });
+    }
+  }, [editItem]);
+
+  // Convert YYYY-MM-DD to MM/DD/YYYY for display
+  const formatDateFromDB = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    if (year && month && day) {
+      return `${month}/${day}/${year}`;
+    }
+    return dateStr;
+  };
 
   const updateField = (field: keyof CreateInventoryItemInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -117,30 +111,65 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
     }
 
     try {
-      const purchaseDate = parseDate(formData.purchase_date);
-      const warrantyExpires = parseDate(formData.warranty_expires);
+      const purchaseDate = parseDateInput(formData.purchase_date);
+      const warrantyExpires = parseDateInput(formData.warranty_expires);
+      const purchasePrice = typeof formData.purchase_price === 'string' 
+        ? parseCurrencyInput(formData.purchase_price)
+        : formData.purchase_price;
       
-      await createItem.mutateAsync({
+      const itemData = {
         name: formData.name!,
         category: formData.category!,
         brand: formData.brand || undefined,
         model_number: formData.model_number || undefined,
         serial_number: formData.serial_number || undefined,
         purchase_date: purchaseDate,
-        purchase_price: formData.purchase_price || undefined,
+        purchase_price: purchasePrice,
         purchase_location: formData.purchase_location || undefined,
         warranty_expires: warrantyExpires,
         notes: formData.notes || undefined,
         location_in_home: formData.location_in_home || undefined,
         barcode: formData.barcode || undefined,
-      });
+      };
+
+      if (isEditMode && editItem) {
+        await updateItem.mutateAsync({ id: editItem.id, updates: itemData });
+      } else {
+        await createItem.mutateAsync(itemData);
+      }
       
       haptics.success();
       handleClose();
     } catch (error) {
       haptics.error();
-      Alert.alert('Error', 'Failed to add item. Please try again.');
+      Alert.alert('Error', `Failed to ${isEditMode ? 'update' : 'add'} item. Please try again.`);
     }
+  };
+
+  const handleDelete = () => {
+    if (!editItem) return;
+    
+    Alert.alert(
+      'Delete Item',
+      `Are you sure you want to delete "${editItem.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await deleteItem.mutateAsync(editItem.id);
+              haptics.success();
+              handleClose();
+            } catch (error) {
+              haptics.error();
+              Alert.alert('Error', 'Failed to delete item. Please try again.');
+            }
+          }
+        },
+      ]
+    );
   };
 
   const handleClose = () => {
@@ -187,10 +216,17 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>Add Inventory Item</Text>
-              <TouchableOpacity onPress={handleClose}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
+              <Text style={styles.title}>{isEditMode ? 'Edit Item' : 'Add Inventory Item'}</Text>
+              <View style={styles.headerActions}>
+                {isEditMode && (
+                  <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+                    <Text style={styles.deleteButtonText}>🗑️</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={handleClose}>
+                  <Text style={styles.closeButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView 
@@ -295,8 +331,10 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
                     style={styles.input}
                     placeholder="MM/DD/YYYY"
                     placeholderTextColor={colors.textTertiary}
+                    keyboardType="number-pad"
                     value={formData.purchase_date || ''}
-                    onChangeText={(v) => updateField('purchase_date', v)}
+                    onChangeText={(v) => updateField('purchase_date', formatDateInput(v))}
+                    maxLength={10}
                   />
                 </View>
                 <View style={[styles.fieldGroup, { flex: 1, marginLeft: spacing.sm }]}>
@@ -305,9 +343,9 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
                     style={styles.input}
                     placeholder="$0.00"
                     placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                     value={formData.purchase_price?.toString() || ''}
-                    onChangeText={(v) => updateField('purchase_price', parseFloat(v) || undefined)}
+                    onChangeText={(v) => updateField('purchase_price', formatCurrencyInput(v))}
                   />
                 </View>
               </View>
@@ -331,8 +369,10 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
                   style={styles.input}
                   placeholder="MM/DD/YYYY"
                   placeholderTextColor={colors.textTertiary}
+                  keyboardType="number-pad"
                   value={formData.warranty_expires || ''}
-                  onChangeText={(v) => updateField('warranty_expires', v)}
+                  onChangeText={(v) => updateField('warranty_expires', formatDateInput(v))}
+                  maxLength={10}
                 />
               </View>
 
@@ -370,13 +410,15 @@ export function AddInventoryModal({ visible, onClose }: AddInventoryModalProps) 
             <TouchableOpacity
               style={[
                 styles.submitButton,
-                createItem.isPending && styles.submitButtonDisabled
+                (createItem.isPending || updateItem.isPending) && styles.submitButtonDisabled
               ]}
               onPress={handleSubmit}
-              disabled={createItem.isPending}
+              disabled={createItem.isPending || updateItem.isPending}
             >
               <Text style={styles.submitButtonText}>
-                {createItem.isPending ? 'Adding...' : 'Add Item'}
+                {createItem.isPending || updateItem.isPending 
+                  ? (isEditMode ? 'Saving...' : 'Adding...') 
+                  : (isEditMode ? 'Save Changes' : 'Add Item')}
               </Text>
             </TouchableOpacity>
           </Animated.View>
@@ -416,6 +458,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  deleteButton: {
+    padding: spacing.sm,
+  },
+  deleteButtonText: {
+    fontSize: 20,
   },
   closeButton: {
     fontSize: 20,

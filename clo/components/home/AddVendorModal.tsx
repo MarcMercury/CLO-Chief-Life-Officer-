@@ -1,10 +1,10 @@
 /**
  * AddVendorModal Component
  * 
- * Modal for adding new vendors/service providers.
+ * Modal for adding/editing vendors/service providers.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,10 +18,11 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
-import { useCreateVendor } from '@/hooks/useHomeOS';
-import { CreateVendorInput } from '@/types/homeos';
+import { useCreateVendor, useUpdateVendor, useDeleteVendor } from '@/hooks/useHomeOS';
+import { CreateVendorInput, Vendor } from '@/types/homeos';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
+import { formatPhoneInput } from '@/lib/formatters';
 
 const TRADES = [
   { value: 'plumber', label: 'Plumber', icon: '🔧' },
@@ -40,16 +41,36 @@ const TRADES = [
 interface AddVendorModalProps {
   visible: boolean;
   onClose: () => void;
+  editItem?: Vendor | null;
 }
 
-export function AddVendorModal({ visible, onClose }: AddVendorModalProps) {
+export function AddVendorModal({ visible, onClose, editItem }: AddVendorModalProps) {
   const createVendor = useCreateVendor();
+  const updateVendor = useUpdateVendor();
+  const deleteVendor = useDeleteVendor();
+  
+  const isEditMode = !!editItem;
   
   const [formData, setFormData] = useState<Partial<CreateVendorInput>>({
     trade: 'other',
     rating: 5,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editItem) {
+      setFormData({
+        name: editItem.name,
+        trade: editItem.trade,
+        phone: editItem.phone || '',
+        email: editItem.email || '',
+        website: editItem.website || '',
+        rating: editItem.rating || 5,
+        notes: editItem.notes || '',
+      });
+    }
+  }, [editItem]);
 
   const updateField = (field: keyof CreateVendorInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -79,7 +100,7 @@ export function AddVendorModal({ visible, onClose }: AddVendorModalProps) {
     }
 
     try {
-      await createVendor.mutateAsync({
+      const vendorData = {
         name: formData.name!,
         trade: formData.trade!,
         phone: formData.phone || undefined,
@@ -87,14 +108,46 @@ export function AddVendorModal({ visible, onClose }: AddVendorModalProps) {
         website: formData.website || undefined,
         rating: formData.rating || 5,
         notes: formData.notes || undefined,
-      });
+      };
+
+      if (isEditMode && editItem) {
+        await updateVendor.mutateAsync({ id: editItem.id, updates: vendorData });
+      } else {
+        await createVendor.mutateAsync(vendorData);
+      }
       
       haptics.success();
       handleClose();
     } catch (error) {
       haptics.error();
-      Alert.alert('Error', 'Failed to add vendor. Please try again.');
+      Alert.alert('Error', `Failed to ${isEditMode ? 'update' : 'add'} vendor. Please try again.`);
     }
+  };
+
+  const handleDelete = () => {
+    if (!editItem) return;
+    
+    Alert.alert(
+      'Delete Vendor',
+      `Are you sure you want to delete "${editItem.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await deleteVendor.mutateAsync(editItem.id);
+              haptics.success();
+              handleClose();
+            } catch (error) {
+              haptics.error();
+              Alert.alert('Error', 'Failed to delete vendor. Please try again.');
+            }
+          }
+        },
+      ]
+    );
   };
 
   const handleClose = () => {
@@ -131,10 +184,17 @@ export function AddVendorModal({ visible, onClose }: AddVendorModalProps) {
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>Add Vendor</Text>
-              <TouchableOpacity onPress={handleClose}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
+              <Text style={styles.title}>{isEditMode ? 'Edit Vendor' : 'Add Vendor'}</Text>
+              <View style={styles.headerActions}>
+                {isEditMode && (
+                  <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+                    <Text style={styles.deleteButtonText}>🗑️</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={handleClose}>
+                  <Text style={styles.closeButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView 
@@ -192,8 +252,9 @@ export function AddVendorModal({ visible, onClose }: AddVendorModalProps) {
                   placeholder="(555) 123-4567"
                   placeholderTextColor={colors.textTertiary}
                   value={formData.phone || ''}
-                  onChangeText={(v) => updateField('phone', v)}
+                  onChangeText={(v) => updateField('phone', formatPhoneInput(v))}
                   keyboardType="phone-pad"
+                  maxLength={14}
                 />
               </View>
 
@@ -260,12 +321,14 @@ export function AddVendorModal({ visible, onClose }: AddVendorModalProps) {
 
               {/* Submit Button */}
               <TouchableOpacity
-                style={[styles.submitButton, createVendor.isPending && styles.submitButtonDisabled]}
+                style={[styles.submitButton, (createVendor.isPending || updateVendor.isPending) && styles.submitButtonDisabled]}
                 onPress={handleSubmit}
-                disabled={createVendor.isPending}
+                disabled={createVendor.isPending || updateVendor.isPending}
               >
                 <Text style={styles.submitButtonText}>
-                  {createVendor.isPending ? 'Saving...' : 'Save Vendor'}
+                  {createVendor.isPending || updateVendor.isPending 
+                    ? (isEditMode ? 'Saving...' : 'Adding...') 
+                    : (isEditMode ? 'Save Changes' : 'Add Vendor')}
                 </Text>
               </TouchableOpacity>
 
@@ -308,6 +371,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  deleteButton: {
+    padding: spacing.xs,
+  },
+  deleteButtonText: {
+    fontSize: 20,
   },
   closeButton: {
     fontSize: 24,

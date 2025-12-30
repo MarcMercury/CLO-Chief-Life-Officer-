@@ -20,6 +20,7 @@ import {
   searchVendors,
   createVendor,
   updateVendor,
+  deleteVendor,
   getServiceLogs,
   createServiceLog,
   getMaintenanceSchedules,
@@ -221,6 +222,22 @@ export function useUpdateVendor() {
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useDeleteVendor() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteVendor(id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['homeStats'] });
     },
     onError: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

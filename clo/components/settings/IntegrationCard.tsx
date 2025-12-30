@@ -90,11 +90,7 @@ export function IntegrationCard({
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity 
-        style={styles.header} 
-        onPress={handleToggle}
-        activeOpacity={0.7}
-      >
+      <View style={styles.header}>
         <View style={styles.iconContainer}>
           <Text style={styles.icon}>{config.icon}</Text>
         </View>
@@ -107,12 +103,24 @@ export function IntegrationCard({
           )}
         </View>
         
-        <View style={[styles.status, connected ? styles.statusConnected : styles.statusDisconnected]}>
-          <Text style={styles.statusText}>
-            {connected ? '✓' : '+'}
-          </Text>
-        </View>
-      </TouchableOpacity>
+        {connected ? (
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.connectedButton]}
+            onPress={handleToggle}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.connectedButtonText}>Connected ✓</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.connectButton]}
+            onPress={handleToggle}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.connectButtonText}>Connect</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {isExpanded && (
         <View style={styles.expandedContent}>
@@ -125,20 +133,25 @@ export function IntegrationCard({
               {isLoading ? (
                 <ActivityIndicator size="small" color={theme.colors.error} />
               ) : (
-                <Text style={styles.disconnectText}>Disconnect</Text>
+                <Text style={styles.disconnectText}>Disconnect {config.name}</Text>
               )}
             </TouchableOpacity>
           ) : config.requiresOAuth ? (
             <View style={styles.oauthContainer}>
               <Text style={styles.oauthText}>
-                This integration requires OAuth authentication.
+                This integration uses secure OAuth authentication.
               </Text>
               <TouchableOpacity
                 style={styles.oauthButton}
-                onPress={() => Alert.alert('Coming Soon', 'OAuth integrations will be available in a future update.')}
+                onPress={() => Alert.alert(
+                  'OAuth Integration', 
+                  `To connect ${config.name}, you'll be redirected to their login page to authorize CLO.\n\nThis feature is coming in a future update.`,
+                  [{ text: 'OK' }]
+                )}
               >
-                <Text style={styles.oauthButtonText}>Connect with {config.name}</Text>
+                <Text style={styles.oauthButtonText}>Sign in with {config.name}</Text>
               </TouchableOpacity>
+              <Text style={styles.comingSoon}>🚧 Coming Soon</Text>
             </View>
           ) : (
             <View style={styles.apiKeyContainer}>
@@ -156,14 +169,14 @@ export function IntegrationCard({
                 autoCorrect={false}
               />
               <TouchableOpacity
-                style={[styles.connectButton, !apiKey.trim() && styles.connectButtonDisabled]}
+                style={[styles.apiKeyConnectButton, !apiKey.trim() && styles.apiKeyConnectButtonDisabled]}
                 onPress={handleConnect}
                 disabled={!apiKey.trim() || isSubmitting}
               >
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.connectButtonText}>Connect</Text>
+                  <Text style={styles.apiKeyConnectButtonText}>Connect</Text>
                 )}
               </TouchableOpacity>
               
@@ -241,9 +254,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.textPrimary,
   },
+  actionButton: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginLeft: theme.spacing.sm,
+  },
+  connectButton: {
+    backgroundColor: theme.colors.self,
+  },
+  connectedButton: {
+    backgroundColor: theme.colors.home,
+  },
+  connectButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  connectedButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
   expandedContent: {
     padding: theme.spacing.md,
-    paddingTop: 0,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
@@ -294,19 +328,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  connectButton: {
+  apiKeyConnectButton: {
     backgroundColor: theme.colors.self,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     alignItems: 'center',
     marginTop: theme.spacing.md,
   },
-  connectButtonDisabled: {
+  apiKeyConnectButtonDisabled: {
     opacity: 0.5,
   },
-  connectButtonText: {
+  apiKeyConnectButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  comingSoon: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    marginTop: theme.spacing.md,
+    fontStyle: 'italic',
   },
   helpText: {
     fontSize: 12,

@@ -1,10 +1,10 @@
 /**
  * AddWikiModal Component
  * 
- * Modal for adding household manual entries (WiFi, gate codes, etc).
+ * Modal for adding/editing household manual entries (WiFi, gate codes, etc).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,6 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
-import { useCreateMaintenanceSchedule } from '@/hooks/useHomeOS';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
 
@@ -34,7 +33,8 @@ const WIKI_CATEGORIES = [
   { value: 'other', label: 'Other', icon: '📝' },
 ];
 
-interface WikiEntry {
+export interface WikiEntry {
+  id?: string;
   category: string;
   title: string;
   content: string;
@@ -44,14 +44,33 @@ interface AddWikiModalProps {
   visible: boolean;
   onClose: () => void;
   onSave?: (entry: WikiEntry) => void;
+  onUpdate?: (entry: WikiEntry) => void;
+  onDelete?: (id: string) => void;
+  editEntry?: WikiEntry | null;
 }
 
-export function AddWikiModal({ visible, onClose, onSave }: AddWikiModalProps) {
+export function AddWikiModal({ visible, onClose, onSave, onUpdate, onDelete, editEntry }: AddWikiModalProps) {
   const [formData, setFormData] = useState<Partial<WikiEntry>>({
     category: 'other',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+
+  const isEditMode = !!editEntry;
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editEntry) {
+      setFormData({
+        id: editEntry.id,
+        category: editEntry.category,
+        title: editEntry.title,
+        content: editEntry.content,
+      });
+    } else {
+      setFormData({ category: 'other' });
+    }
+  }, [editEntry, visible]);
 
   const updateField = (field: keyof WikiEntry, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -83,25 +102,52 @@ export function AddWikiModal({ visible, onClose, onSave }: AddWikiModalProps) {
     setIsSaving(true);
     
     try {
-      // For now, we'll use local storage or pass to parent
-      // In future, this would save to a wiki_entries table
-      if (onSave) {
-        onSave({
-          category: formData.category || 'other',
-          title: formData.title!,
-          content: formData.content!,
-        });
+      const entry: WikiEntry = {
+        id: formData.id,
+        category: formData.category || 'other',
+        title: formData.title!,
+        content: formData.content!,
+      };
+
+      if (isEditMode && onUpdate) {
+        onUpdate(entry);
+        Alert.alert('Success', 'Entry updated!');
+      } else if (onSave) {
+        onSave(entry);
+        Alert.alert('Success', 'Entry added to your household manual!');
       }
       
       haptics.success();
       handleClose();
-      Alert.alert('Success', 'Entry added to your household manual!');
     } catch (error) {
       haptics.error();
-      Alert.alert('Error', 'Failed to add entry. Please try again.');
+      Alert.alert('Error', 'Failed to save entry. Please try again.');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleDelete = () => {
+    if (!editEntry?.id) return;
+    
+    Alert.alert(
+      'Delete Entry',
+      `Are you sure you want to delete "${editEntry.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => {
+            if (onDelete) {
+              onDelete(editEntry.id!);
+              haptics.success();
+              handleClose();
+            }
+          }
+        },
+      ]
+    );
   };
 
   const handleClose = () => {
@@ -138,7 +184,7 @@ export function AddWikiModal({ visible, onClose, onSave }: AddWikiModalProps) {
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>Add Manual Entry</Text>
+              <Text style={styles.title}>{isEditMode ? 'Edit Entry' : 'Add Manual Entry'}</Text>
               <TouchableOpacity onPress={handleClose}>
                 <Text style={styles.closeButton}>✕</Text>
               </TouchableOpacity>
@@ -217,9 +263,19 @@ export function AddWikiModal({ visible, onClose, onSave }: AddWikiModalProps) {
                 disabled={isSaving}
               >
                 <Text style={styles.submitButtonText}>
-                  {isSaving ? 'Saving...' : 'Save Entry'}
+                  {isSaving ? 'Saving...' : isEditMode ? 'Update Entry' : 'Save Entry'}
                 </Text>
               </TouchableOpacity>
+
+              {/* Delete Button (edit mode only) */}
+              {isEditMode && (
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={handleDelete}
+                >
+                  <Text style={styles.deleteButtonText}>Delete Entry</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={{ height: 40 }} />
             </ScrollView>
@@ -350,5 +406,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  deleteButton: {
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  deleteButtonText: {
+    color: colors.error,
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

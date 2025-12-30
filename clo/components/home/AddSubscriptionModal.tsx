@@ -1,10 +1,10 @@
 /**
  * AddSubscriptionModal Component
  * 
- * Modal for adding new subscriptions with "Kill Switch" cancellation feature.
+ * Modal for adding/editing subscriptions with "Kill Switch" cancellation feature.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,10 +18,11 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
-import { useCreateSubscription } from '@/hooks/useHomeOS';
-import { CreateSubscriptionInput, SubscriptionFrequency, SubscriptionCategory } from '@/types/homeos';
+import { useCreateSubscription, useUpdateSubscription, useCancelSubscription } from '@/hooks/useHomeOS';
+import { CreateSubscriptionInput, SubscriptionFrequency, SubscriptionCategory, Subscription } from '@/types/homeos';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
+import { formatDateInput, parseDateInput, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 
 const BILLING_CYCLES: { value: SubscriptionFrequency; label: string }[] = [
   { value: 'monthly', label: 'Monthly' },
@@ -42,10 +43,15 @@ const CATEGORIES: { value: SubscriptionCategory; label: string; icon: string }[]
 interface AddSubscriptionModalProps {
   visible: boolean;
   onClose: () => void;
+  editItem?: Subscription | null;
 }
 
-export function AddSubscriptionModal({ visible, onClose }: AddSubscriptionModalProps) {
+export function AddSubscriptionModal({ visible, onClose, editItem }: AddSubscriptionModalProps) {
   const createSub = useCreateSubscription();
+  const updateSub = useUpdateSubscription();
+  const cancelSub = useCancelSubscription();
+  
+  const isEditMode = !!editItem;
   
   const [formData, setFormData] = useState<Partial<CreateSubscriptionInput>>({
     frequency: 'monthly',
@@ -53,6 +59,33 @@ export function AddSubscriptionModal({ visible, onClose }: AddSubscriptionModalP
     auto_renew: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editItem) {
+      setFormData({
+        name: editItem.name,
+        cost: editItem.cost,
+        frequency: editItem.frequency,
+        category: editItem.category,
+        next_billing_date: editItem.next_billing_date ? formatDateFromDB(editItem.next_billing_date) : '',
+        auto_renew: editItem.auto_renew,
+        cancellation_url: editItem.cancellation_url || '',
+        cancellation_instructions: editItem.cancellation_instructions || '',
+        notes: editItem.notes || '',
+      });
+    }
+  }, [editItem]);
+
+  // Convert YYYY-MM-DD to MM/DD/YYYY for display
+  const formatDateFromDB = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    if (year && month && day) {
+      return `${month}/${day}/${year}`;
+    }
+    return dateStr;
+  };
 
   const updateField = (field: keyof CreateSubscriptionInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -82,24 +115,56 @@ export function AddSubscriptionModal({ visible, onClose }: AddSubscriptionModalP
     }
 
     try {
-      await createSub.mutateAsync({
+      const subData = {
         name: formData.name!,
-        cost: formData.cost!,
+        cost: parseCurrencyInput(formData.cost?.toString() || '0'),
         frequency: formData.frequency!,
         category: formData.category!,
-        next_billing_date: formData.next_billing_date || undefined,
+        next_billing_date: formData.next_billing_date ? parseDateInput(formData.next_billing_date) : undefined,
         cancellation_url: formData.cancellation_url || undefined,
         cancellation_instructions: formData.cancellation_instructions || undefined,
         auto_renew: formData.auto_renew,
         notes: formData.notes || undefined,
-      });
+      };
+
+      if (isEditMode && editItem) {
+        await updateSub.mutateAsync({ id: editItem.id, updates: subData });
+      } else {
+        await createSub.mutateAsync(subData);
+      }
       
       haptics.success();
       handleClose();
     } catch (error) {
       haptics.error();
-      Alert.alert('Error', 'Failed to add subscription. Please try again.');
+      Alert.alert('Error', `Failed to ${isEditMode ? 'update' : 'add'} subscription. Please try again.`);
     }
+  };
+
+  const handleDelete = () => {
+    if (!editItem) return;
+    
+    Alert.alert(
+      'Delete Subscription',
+      `Are you sure you want to delete "${editItem.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await cancelSub.mutateAsync(editItem.id);
+              haptics.success();
+              handleClose();
+            } catch (error) {
+              haptics.error();
+              Alert.alert('Error', 'Failed to delete subscription. Please try again.');
+            }
+          }
+        },
+      ]
+    );
   };
 
   const handleClose = () => {
@@ -140,10 +205,17 @@ export function AddSubscriptionModal({ visible, onClose }: AddSubscriptionModalP
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>Add Subscription</Text>
-              <TouchableOpacity onPress={handleClose}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
+              <Text style={styles.title}>{isEditMode ? 'Edit Subscription' : 'Add Subscription'}</Text>
+              <View style={styles.headerActions}>
+                {isEditMode && (
+                  <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+                    <Text style={styles.deleteButtonText}>🗑️</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={handleClose}>
+                  <Text style={styles.closeButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView 
@@ -203,9 +275,9 @@ export function AddSubscriptionModal({ visible, onClose }: AddSubscriptionModalP
                     style={[styles.input, errors.cost && styles.inputError]}
                     placeholder="$9.99"
                     placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                     value={formData.cost?.toString() || ''}
-                    onChangeText={(v) => updateField('cost', parseFloat(v) || undefined)}
+                    onChangeText={(v) => updateField('cost', formatCurrencyInput(v))}
                   />
                   {errors.cost && <Text style={styles.errorText}>{errors.cost}</Text>}
                 </View>
@@ -243,10 +315,12 @@ export function AddSubscriptionModal({ visible, onClose }: AddSubscriptionModalP
                 <Text style={styles.label}>Next Billing Date</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="YYYY-MM-DD"
+                  placeholder="MM/DD/YYYY"
                   placeholderTextColor={colors.textTertiary}
+                  keyboardType="number-pad"
                   value={formData.next_billing_date || ''}
-                  onChangeText={(v) => updateField('next_billing_date', v)}
+                  onChangeText={(v) => updateField('next_billing_date', formatDateInput(v))}
+                  maxLength={10}
                 />
               </View>
 
@@ -326,13 +400,15 @@ export function AddSubscriptionModal({ visible, onClose }: AddSubscriptionModalP
             <TouchableOpacity
               style={[
                 styles.submitButton,
-                createSub.isPending && styles.submitButtonDisabled
+                (createSub.isPending || updateSub.isPending) && styles.submitButtonDisabled
               ]}
               onPress={handleSubmit}
-              disabled={createSub.isPending}
+              disabled={createSub.isPending || updateSub.isPending}
             >
               <Text style={styles.submitButtonText}>
-                {createSub.isPending ? 'Adding...' : 'Add Subscription'}
+                {createSub.isPending || updateSub.isPending 
+                  ? (isEditMode ? 'Saving...' : 'Adding...') 
+                  : (isEditMode ? 'Save Changes' : 'Add Subscription')}
               </Text>
             </TouchableOpacity>
           </Animated.View>
@@ -372,6 +448,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  deleteButton: {
+    padding: spacing.sm,
+  },
+  deleteButtonText: {
+    fontSize: 20,
   },
   closeButton: {
     fontSize: 20,

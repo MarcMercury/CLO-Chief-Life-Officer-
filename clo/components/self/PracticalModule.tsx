@@ -20,6 +20,7 @@ import {
 import Animated, { FadeIn, FadeInUp, FadeInRight } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius } from '@/constants/theme';
+import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import { 
   useItems, 
   useCreateItem, 
@@ -131,8 +132,8 @@ export function PracticalModule() {
   }, [deleteItem]);
 
   const handleAddSpend = useCallback(async () => {
-    const amount = parseFloat(spendAmount);
-    if (isNaN(amount) || amount <= 0) return;
+    const amount = parseCurrencyInput(spendAmount) || 0;
+    if (amount <= 0) return;
     
     await addSpending.mutateAsync({
       amount,
@@ -387,8 +388,8 @@ export function PracticalModule() {
             placeholder="$0.00"
             placeholderTextColor={colors.textTertiary}
             value={spendAmount}
-            onChangeText={setSpendAmount}
-            keyboardType="numeric"
+            onChangeText={(v) => setSpendAmount(formatCurrencyInput(v))}
+            keyboardType="decimal-pad"
           />
           <TextInput
             style={[styles.addInput, { flex: 2 }]}

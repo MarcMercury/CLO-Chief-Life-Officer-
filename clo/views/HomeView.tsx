@@ -15,6 +15,7 @@ import {
 import Animated, { FadeIn, FadeInUp, FadeInRight } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { AddInventoryModal, AddSubscriptionModal, AddVendorModal, AddWikiModal } from '../components/home';
+import { WikiEntry } from '../components/home/AddWikiModal';
 import { 
   useInventory, 
   useSubscriptions, 
@@ -25,6 +26,7 @@ import {
   useProperties,
   useCreateProperty,
 } from '@/hooks/useHomeOS';
+import { HomeInventoryItem, Subscription, Vendor } from '@/types/homeos';
 import { colors } from '@/constants/theme';
 
 const ACCENT = colors.home;
@@ -72,8 +74,14 @@ export default function HomeView() {
   const [addModalType, setAddModalType] = useState<'inventory' | 'subscription'>('inventory');
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showWikiModal, setShowWikiModal] = useState(false);
+  const [editingWikiEntry, setEditingWikiEntry] = useState<WikiEntry | null>(null);
   const [wikiEntries, setWikiEntries] = useState(MOCK_WIKI_ENTRIES);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Edit mode state for items
+  const [editingInventoryItem, setEditingInventoryItem] = useState<HomeInventoryItem | null>(null);
+  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   
   // Property management state
   const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
@@ -153,8 +161,41 @@ export default function HomeView() {
 
   const openAddModal = useCallback((type: 'inventory' | 'subscription') => {
     setAddModalType(type);
+    setEditingInventoryItem(null);
+    setEditingSubscription(null);
     setShowAddModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const openEditInventoryModal = useCallback((item: HomeInventoryItem) => {
+    setAddModalType('inventory');
+    setEditingInventoryItem(item);
+    setShowAddModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const openEditSubscriptionModal = useCallback((sub: Subscription) => {
+    setAddModalType('subscription');
+    setEditingSubscription(sub);
+    setShowAddModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const openEditVendorModal = useCallback((vendor: Vendor) => {
+    setEditingVendor(vendor);
+    setShowVendorModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const closeAddModal = useCallback(() => {
+    setShowAddModal(false);
+    setEditingInventoryItem(null);
+    setEditingSubscription(null);
+  }, []);
+
+  const closeVendorModal = useCallback(() => {
+    setShowVendorModal(false);
+    setEditingVendor(null);
   }, []);
 
   const handleTabChange = useCallback((tab: TabType) => {
@@ -186,6 +227,7 @@ export default function HomeView() {
   }, []);
 
   const openVendorModal = useCallback(() => {
+    setEditingVendor(null);
     setShowVendorModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
@@ -202,6 +244,29 @@ export default function HomeView() {
     };
     setWikiEntries(prev => [...prev, newEntry]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
+  const handleUpdateWikiEntry = useCallback((entry: WikiEntry) => {
+    setWikiEntries(prev => prev.map(e => e.id === entry.id ? entry : e));
+    setEditingWikiEntry(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
+  const handleDeleteWikiEntry = useCallback((id: string) => {
+    setWikiEntries(prev => prev.filter(e => e.id !== id));
+    setEditingWikiEntry(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
+  const openWikiEntryForEdit = useCallback((entry: WikiEntry) => {
+    setEditingWikiEntry(entry);
+    setShowWikiModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const closeWikiModal = useCallback(() => {
+    setShowWikiModal(false);
+    setEditingWikiEntry(null);
   }, []);
 
   // Filter functions
@@ -371,7 +436,10 @@ export default function HomeView() {
       {/* Items List */}
       {filteredInventory.map((item, i) => (
         <Animated.View key={item.id} entering={FadeInUp.delay(i * 30).duration(300)}>
-          <TouchableOpacity style={styles.listCard}>
+          <TouchableOpacity 
+            style={styles.listCard}
+            onPress={() => openEditInventoryModal(item)}
+          >
             <View style={styles.listIcon}>
               <Text style={styles.listEmoji}>{INVENTORY_ICONS[item.category] || '📦'}</Text>
             </View>
@@ -392,6 +460,7 @@ export default function HomeView() {
             {item.purchase_price && (
               <Text style={styles.priceText}>${item.purchase_price.toLocaleString()}</Text>
             )}
+            <Text style={styles.editHint}>✏️</Text>
           </TouchableOpacity>
         </Animated.View>
       ))}
@@ -442,6 +511,7 @@ export default function HomeView() {
           <Animated.View key={sub.id} entering={FadeInUp.delay(i * 30).duration(300)}>
             <TouchableOpacity 
               style={[styles.listCard, !sub.is_active && styles.cancelledCard]}
+              onPress={() => openEditSubscriptionModal(sub)}
               onLongPress={() => handleCancelSubscription(sub)}
             >
               <View style={styles.listIcon}>
@@ -461,12 +531,13 @@ export default function HomeView() {
                 <Text style={styles.costAmount}>${sub.cost?.toFixed(2)}</Text>
                 <Text style={styles.costPeriod}>/{sub.frequency?.[0]}</Text>
               </View>
+              <Text style={styles.editHint}>✏️</Text>
             </TouchableOpacity>
           </Animated.View>
         );
       })}
 
-      <Text style={styles.tipText}>💡 Long press on a subscription to generate a cancellation letter</Text>
+      <Text style={styles.tipText}>💡 Tap to edit • Long press for cancellation letter</Text>
     </Animated.View>
   );
 
@@ -505,7 +576,10 @@ export default function HomeView() {
       {/* Vendors List */}
       {filteredVendors.map((vendor, i) => (
         <Animated.View key={vendor.id} entering={FadeInUp.delay(i * 30).duration(300)}>
-          <View style={styles.listCard}>
+          <TouchableOpacity 
+            style={styles.listCard}
+            onPress={() => openEditVendorModal(vendor)}
+          >
             <View style={styles.listIcon}>
               <Text style={styles.listEmoji}>{VENDOR_ICONS[vendor.trade?.toLowerCase()] || '👷'}</Text>
             </View>
@@ -526,7 +600,8 @@ export default function HomeView() {
                 <Text style={styles.callBtnText}>📞</Text>
               </TouchableOpacity>
             )}
-          </View>
+            <Text style={styles.editHint}>✏️</Text>
+          </TouchableOpacity>
         </Animated.View>
       ))}
 
@@ -553,10 +628,14 @@ export default function HomeView() {
 
       {wikiEntries.map((entry, i) => (
         <Animated.View key={entry.id} entering={FadeInUp.delay(i * 50).duration(300)}>
-          <TouchableOpacity style={styles.wikiCard}>
+          <TouchableOpacity 
+            style={styles.wikiCard}
+            onPress={() => openWikiEntryForEdit(entry)}
+          >
             <View style={styles.wikiHeader}>
               <Text style={styles.wikiIcon}>{WIKI_ICONS[entry.category] || '📝'}</Text>
               <Text style={styles.wikiTitle}>{entry.title}</Text>
+              <Text style={styles.wikiEditHint}>✏️</Text>
             </View>
             <Text style={styles.wikiContent}>{entry.content}</Text>
           </TouchableOpacity>
@@ -755,20 +834,26 @@ export default function HomeView() {
       {/* Modals */}
       <AddInventoryModal 
         visible={showAddModal && addModalType === 'inventory'} 
-        onClose={() => setShowAddModal(false)} 
+        onClose={closeAddModal}
+        editItem={editingInventoryItem}
       />
       <AddSubscriptionModal 
         visible={showAddModal && addModalType === 'subscription'} 
-        onClose={() => setShowAddModal(false)} 
+        onClose={closeAddModal}
+        editItem={editingSubscription}
       />
       <AddVendorModal 
         visible={showVendorModal} 
-        onClose={() => setShowVendorModal(false)} 
+        onClose={closeVendorModal}
+        editItem={editingVendor}
       />
       <AddWikiModal 
         visible={showWikiModal} 
-        onClose={() => setShowWikiModal(false)}
+        onClose={closeWikiModal}
         onSave={handleAddWikiEntry}
+        onUpdate={handleUpdateWikiEntry}
+        onDelete={handleDeleteWikiEntry}
+        editEntry={editingWikiEntry}
       />
       
       {/* Add Property Modal */}
@@ -1472,6 +1557,11 @@ const styles = StyleSheet.create({
   warningText: {
     color: '#eab308',
   },
+  editHint: {
+    fontSize: 14,
+    marginLeft: 8,
+    opacity: 0.5,
+  },
 
   // Subscription specific
   burnCard: {
@@ -1569,6 +1659,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#E0E0E0',
+    flex: 1,
+  },
+  wikiEditHint: {
+    fontSize: 14,
+    opacity: 0.5,
   },
   wikiContent: {
     fontSize: 13,

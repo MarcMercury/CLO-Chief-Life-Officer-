@@ -47,7 +47,7 @@ const SYNC_BUTTON_SIZE = 60;
 // VIEW MODE TOGGLE
 // ============================================
 
-type ViewMode = 'agenda' | 'widgets';
+type ViewMode = 'agenda' | 'spheres';
 
 // ============================================
 // MAIN COMPONENT
@@ -216,18 +216,18 @@ export default function DashboardView() {
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              viewMode === 'widgets' && styles.toggleButtonActive,
+              viewMode === 'spheres' && styles.toggleButtonActive,
             ]}
             onPress={() => {
               haptics.selection();
-              setViewMode('widgets');
+              setViewMode('spheres');
             }}
           >
             <Text style={[
               styles.toggleText,
-              viewMode === 'widgets' && styles.toggleTextActive,
+              viewMode === 'spheres' && styles.toggleTextActive,
             ]}>
-              📊 Widgets
+              🔮 Spheres
             </Text>
           </TouchableOpacity>
         </View>
