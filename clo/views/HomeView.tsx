@@ -829,88 +829,88 @@ export default function HomeView() {
                 ))}
               </View>
             
-            {/* Property Type Selector */}
-            <Text style={styles.addPropertyLabel}>Property Type</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.typeScrollView}
-              contentContainerStyle={styles.typeContainer}
-            >
-              {[
-                { key: 'home', label: 'Home', icon: '🏠' },
-                { key: 'vacation', label: 'Vacation', icon: '🏖️' },
-                { key: 'rental', label: 'Rental', icon: '🔑' },
-                { key: 'office', label: 'Office', icon: '🏢' },
-                { key: 'storage', label: 'Storage', icon: '📦' },
-                { key: 'vehicle', label: 'Vehicle', icon: '🚗' },
-                { key: 'other', label: 'Other', icon: '📍' },
-              ].map((type) => (
+              {/* Property Type Selector */}
+              <Text style={styles.addPropertyLabel}>Property Type</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.typeScrollView}
+                contentContainerStyle={styles.typeContainer}
+              >
+                {[
+                  { key: 'home', label: 'Home', icon: '🏠' },
+                  { key: 'vacation', label: 'Vacation', icon: '🏖️' },
+                  { key: 'rental', label: 'Rental', icon: '🔑' },
+                  { key: 'office', label: 'Office', icon: '🏢' },
+                  { key: 'storage', label: 'Storage', icon: '📦' },
+                  { key: 'vehicle', label: 'Vehicle', icon: '🚗' },
+                  { key: 'other', label: 'Other', icon: '📍' },
+                ].map((type) => (
+                  <TouchableOpacity
+                    key={type.key}
+                    style={[
+                      styles.typeOption,
+                      newPropertyType === type.key && styles.typeOptionSelected,
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setNewPropertyType(type.key as typeof newPropertyType);
+                    }}
+                  >
+                    <Text style={styles.typeOptionIcon}>{type.icon}</Text>
+                    <Text style={[
+                      styles.typeOptionLabel,
+                      newPropertyType === type.key && styles.typeOptionLabelSelected,
+                    ]}>
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            
+              {/* Buttons */}
+              <View style={styles.addPropertyButtons}>
                 <TouchableOpacity
-                  key={type.key}
-                  style={[
-                    styles.typeOption,
-                    newPropertyType === type.key && styles.typeOptionSelected,
-                  ]}
+                  style={styles.addPropertyCancelBtn}
                   onPress={() => {
-                    Haptics.selectionAsync();
-                    setNewPropertyType(type.key as typeof newPropertyType);
+                    setShowAddPropertyModal(false);
+                    setNewPropertyName('');
+                    setNewPropertyAddress('');
+                    setNewPropertyIcon('🏠');
+                    setNewPropertyType('home');
                   }}
                 >
-                  <Text style={styles.typeOptionIcon}>{type.icon}</Text>
-                  <Text style={[
-                    styles.typeOptionLabel,
-                    newPropertyType === type.key && styles.typeOptionLabelSelected,
-                  ]}>
-                    {type.label}
+                  <Text style={styles.addPropertyCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.addPropertySaveBtn,
+                    (!newPropertyName.trim() || createPropertyMutation.isPending) && styles.addPropertySaveBtnDisabled,
+                  ]}
+                  disabled={!newPropertyName.trim() || createPropertyMutation.isPending}
+                  onPress={async () => {
+                    const result = await createPropertyMutation.mutateAsync({
+                      name: newPropertyName.trim(),
+                      address: newPropertyAddress.trim() || undefined,
+                      icon: newPropertyIcon,
+                      type: newPropertyType,
+                    });
+                    if (result) {
+                      setActivePropertyId(result.id);
+                    }
+                    setShowAddPropertyModal(false);
+                    setNewPropertyName('');
+                    setNewPropertyAddress('');
+                    setNewPropertyIcon('🏠');
+                    setNewPropertyType('home');
+                  }}
+                >
+                  <Text style={styles.addPropertySaveText}>
+                    {createPropertyMutation.isPending ? 'Adding...' : 'Add Property'}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-            
-            {/* Buttons */}
-            <View style={styles.addPropertyButtons}>
-              <TouchableOpacity
-                style={styles.addPropertyCancelBtn}
-                onPress={() => {
-                  setShowAddPropertyModal(false);
-                  setNewPropertyName('');
-                  setNewPropertyAddress('');
-                  setNewPropertyIcon('🏠');
-                  setNewPropertyType('home');
-                }}
-              >
-                <Text style={styles.addPropertyCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.addPropertySaveBtn,
-                  (!newPropertyName.trim() || createPropertyMutation.isPending) && styles.addPropertySaveBtnDisabled,
-                ]}
-                disabled={!newPropertyName.trim() || createPropertyMutation.isPending}
-                onPress={async () => {
-                  const result = await createPropertyMutation.mutateAsync({
-                    name: newPropertyName.trim(),
-                    address: newPropertyAddress.trim() || undefined,
-                    icon: newPropertyIcon,
-                    type: newPropertyType,
-                  });
-                  if (result) {
-                    setActivePropertyId(result.id);
-                  }
-                  setShowAddPropertyModal(false);
-                  setNewPropertyName('');
-                  setNewPropertyAddress('');
-                  setNewPropertyIcon('🏠');
-                  setNewPropertyType('home');
-                }}
-              >
-                <Text style={styles.addPropertySaveText}>
-                  {createPropertyMutation.isPending ? 'Adding...' : 'Add Property'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+              </View>
             </ScrollView>
           </Pressable>
         </Pressable>
