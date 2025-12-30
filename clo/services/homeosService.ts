@@ -618,3 +618,133 @@ export async function getHomeStats(): Promise<{
     overdueMaintenanceCount: overdueMaintenanceCount || 0,
   };
 }
+
+// ============================================
+// PROPERTY OPERATIONS
+// ============================================
+
+export interface Property {
+  id: string;
+  user_id: string;
+  name: string;
+  icon: string;
+  address?: string;
+  type: 'home' | 'vacation' | 'rental' | 'office' | 'storage' | 'vehicle' | 'other';
+  is_primary: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePropertyInput {
+  name: string;
+  icon?: string;
+  address?: string;
+  type?: Property['type'];
+  is_primary?: boolean;
+  notes?: string;
+}
+
+export async function getProperties(): Promise<Property[]> {
+  const { data, error } = await (supabase as any)
+    .from('properties')
+    .select('*')
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Failed to fetch properties:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getProperty(id: string): Promise<Property | null> {
+  const { data, error } = await (supabase as any)
+    .from('properties')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Failed to fetch property:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function createProperty(input: CreatePropertyInput): Promise<Property | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await (supabase as any)
+    .from('properties')
+    .insert({
+      user_id: user.id,
+      name: input.name,
+      icon: input.icon || '🏠',
+      address: input.address,
+      type: input.type || 'home',
+      is_primary: input.is_primary || false,
+      notes: input.notes,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to create property:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateProperty(id: string, updates: Partial<CreatePropertyInput>): Promise<Property | null> {
+  const { data, error } = await (supabase as any)
+    .from('properties')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to update property:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteProperty(id: string): Promise<boolean> {
+  const { error } = await (supabase as any)
+    .from('properties')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Failed to delete property:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function setPrimaryProperty(id: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  // First, unset all as primary
+  await (supabase as any)
+    .from('properties')
+    .update({ is_primary: false })
+    .eq('user_id', user.id);
+
+  // Then set the selected one as primary
+  const { error } = await (supabase as any)
+    .from('properties')
+    .update({ is_primary: true })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Failed to set primary property:', error);
+    return false;
+  }
+  return true;
+}

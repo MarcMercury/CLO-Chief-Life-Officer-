@@ -309,20 +309,28 @@ export interface CreateWikiEntryInput {
 // Multi-Property Support
 // ============================================
 
+export type PropertyType = 'home' | 'vacation' | 'rental' | 'office' | 'storage' | 'vehicle' | 'other';
+
 export interface Property {
   id: string;
   user_id: string;
   name: string;
+  icon: string;
   address: string | null;
+  type: PropertyType;
   photo_url: string | null;
   is_primary: boolean;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreatePropertyInput {
   name: string;
+  icon?: string;
   address?: string;
+  type?: PropertyType;
   photo_url?: string;
   is_primary?: boolean;
+  notes?: string;
 }

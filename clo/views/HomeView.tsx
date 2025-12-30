@@ -9,6 +9,8 @@ import {
   TextInput,
   Linking,
   Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp, FadeInRight } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -20,6 +22,8 @@ import {
   useServiceLogs,
   useMaintenanceSchedules,
   useHomeAlerts,
+  useProperties,
+  useCreateProperty,
 } from '@/hooks/useHomeOS';
 import { colors } from '@/constants/theme';
 
@@ -70,7 +74,34 @@ export default function HomeView() {
   const [showWikiModal, setShowWikiModal] = useState(false);
   const [wikiEntries, setWikiEntries] = useState(MOCK_WIKI_ENTRIES);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeProperty, setActiveProperty] = useState('Main House');
+  
+  // Property management state
+  const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
+  const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
+  const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
+  const [newPropertyName, setNewPropertyName] = useState('');
+  const [newPropertyIcon, setNewPropertyIcon] = useState('🏠');
+  const [newPropertyType, setNewPropertyType] = useState<'home' | 'vacation' | 'rental' | 'office' | 'storage' | 'vehicle' | 'other'>('home');
+  
+  // Fetch properties from database
+  const { data: dbProperties = [], isLoading: loadingProperties } = useProperties();
+  const createPropertyMutation = useCreateProperty();
+  
+  // Fallback to local property if database is empty (migration not run yet)
+  const defaultProperty = { id: 'default', name: 'Main House', icon: '🏠', is_primary: true };
+  const properties = dbProperties.length > 0 ? dbProperties : [defaultProperty];
+  
+  // Set initial active property when properties load
+  React.useEffect(() => {
+    if (properties.length > 0 && !activePropertyId) {
+      const primary = properties.find(p => p.is_primary) || properties[0];
+      setActivePropertyId(primary.id);
+    }
+  }, [properties, activePropertyId]);
+  
+  // Get active property object
+  const activeProperty = properties.find(p => p.id === activePropertyId) || properties[0];
+  const activePropertyName = activeProperty?.name || 'Main House';
   
   // Fetch data
   const { data: inventory = [], isLoading: loadingInventory } = useInventory();
@@ -606,15 +637,77 @@ export default function HomeView() {
       {/* Header with Property Switcher */}
       <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerEmoji}>🏠</Text>
+          <Text style={styles.headerEmoji}>
+            {activeProperty?.icon || '🏠'}
+          </Text>
           <View>
             <Text style={styles.title}>Home</Text>
-            <TouchableOpacity style={styles.propertySwitcher}>
-              <Text style={styles.propertyName}>{activeProperty}</Text>
-              <Text style={styles.switchIcon}>▼</Text>
+            <TouchableOpacity 
+              style={styles.propertySwitcher}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowPropertyDropdown(!showPropertyDropdown);
+              }}
+            >
+              <Text style={styles.propertyName}>{activePropertyName}</Text>
+              <Text style={[styles.switchIcon, showPropertyDropdown && styles.switchIconOpen]}>
+                ▼
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
+        
+        {/* Property Dropdown */}
+        {showPropertyDropdown && (
+          <Animated.View 
+            entering={FadeIn.duration(200)} 
+            style={styles.propertyDropdown}
+          >
+            {properties.map((property) => (
+              <TouchableOpacity
+                key={property.id}
+                style={[
+                  styles.propertyOption,
+                  property.id === activePropertyId && styles.propertyOptionActive,
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setActivePropertyId(property.id);
+                  setShowPropertyDropdown(false);
+                }}
+              >
+                <Text style={styles.propertyOptionIcon}>{property.icon}</Text>
+                <Text style={[
+                  styles.propertyOptionText,
+                  property.id === activePropertyId && styles.propertyOptionTextActive,
+                ]}>
+                  {property.name}
+                </Text>
+                {property.id === activePropertyId && (
+                  <Text style={styles.propertyCheckmark}>✓</Text>
+                )}
+                {property.is_primary && (
+                  <View style={styles.primaryBadge}>
+                    <Text style={styles.primaryBadgeText}>Primary</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+            
+            {/* Add Property Option */}
+            <TouchableOpacity
+              style={styles.addPropertyOption}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowPropertyDropdown(false);
+                setShowAddPropertyModal(true);
+              }}
+            >
+              <Text style={styles.addPropertyIcon}>＋</Text>
+              <Text style={styles.addPropertyText}>Add Property</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
       </Animated.View>
 
       {/* Tab Bar */}
@@ -676,6 +769,134 @@ export default function HomeView() {
         onClose={() => setShowWikiModal(false)}
         onSave={handleAddWikiEntry}
       />
+      
+      {/* Add Property Modal */}
+      <Modal
+        visible={showAddPropertyModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddPropertyModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setShowAddPropertyModal(false)}
+        >
+          <Pressable style={styles.addPropertyModal} onPress={e => e.stopPropagation()}>
+            <Text style={styles.addPropertyModalTitle}>Add Property</Text>
+            
+            {/* Property Icon Selector */}
+            <Text style={styles.addPropertyLabel}>Choose Icon</Text>
+            <View style={styles.iconGrid}>
+              {['🏠', '🏡', '🏢', '🏬', '🏭', '🛖', '⛺', '🏕️', '🏖️', '🏝️', '🚗', '🏗️'].map((icon) => (
+                <TouchableOpacity
+                  key={icon}
+                  style={[
+                    styles.iconOption,
+                    newPropertyIcon === icon && styles.iconOptionSelected,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setNewPropertyIcon(icon);
+                  }}
+                >
+                  <Text style={styles.iconOptionText}>{icon}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            {/* Property Name Input */}
+            <Text style={styles.addPropertyLabel}>Property Name</Text>
+            <TextInput
+              style={styles.addPropertyInput}
+              placeholder="e.g., Beach House, Office"
+              placeholderTextColor="#666"
+              value={newPropertyName}
+              onChangeText={setNewPropertyName}
+              autoFocus
+            />
+            
+            {/* Property Type Selector */}
+            <Text style={styles.addPropertyLabel}>Property Type</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.typeScrollView}
+              contentContainerStyle={styles.typeContainer}
+            >
+              {[
+                { key: 'home', label: 'Home', icon: '🏠' },
+                { key: 'vacation', label: 'Vacation', icon: '🏖️' },
+                { key: 'rental', label: 'Rental', icon: '🔑' },
+                { key: 'office', label: 'Office', icon: '🏢' },
+                { key: 'storage', label: 'Storage', icon: '📦' },
+                { key: 'vehicle', label: 'Vehicle', icon: '🚗' },
+                { key: 'other', label: 'Other', icon: '📍' },
+              ].map((type) => (
+                <TouchableOpacity
+                  key={type.key}
+                  style={[
+                    styles.typeOption,
+                    newPropertyType === type.key && styles.typeOptionSelected,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setNewPropertyType(type.key as typeof newPropertyType);
+                  }}
+                >
+                  <Text style={styles.typeOptionIcon}>{type.icon}</Text>
+                  <Text style={[
+                    styles.typeOptionLabel,
+                    newPropertyType === type.key && styles.typeOptionLabelSelected,
+                  ]}>
+                    {type.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            {/* Buttons */}
+            <View style={styles.addPropertyButtons}>
+              <TouchableOpacity
+                style={styles.addPropertyCancelBtn}
+                onPress={() => {
+                  setShowAddPropertyModal(false);
+                  setNewPropertyName('');
+                  setNewPropertyIcon('🏠');
+                  setNewPropertyType('home');
+                }}
+              >
+                <Text style={styles.addPropertyCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.addPropertySaveBtn,
+                  (!newPropertyName.trim() || createPropertyMutation.isPending) && styles.addPropertySaveBtnDisabled,
+                ]}
+                disabled={!newPropertyName.trim() || createPropertyMutation.isPending}
+                onPress={async () => {
+                  const result = await createPropertyMutation.mutateAsync({
+                    name: newPropertyName.trim(),
+                    icon: newPropertyIcon,
+                    type: newPropertyType,
+                  });
+                  if (result) {
+                    setActivePropertyId(result.id);
+                  }
+                  setShowAddPropertyModal(false);
+                  setNewPropertyName('');
+                  setNewPropertyIcon('🏠');
+                  setNewPropertyType('home');
+                }}
+              >
+                <Text style={styles.addPropertySaveText}>
+                  {createPropertyMutation.isPending ? 'Adding...' : 'Add Property'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -732,6 +953,216 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#666',
     marginLeft: 4,
+  },
+  switchIconOpen: {
+    transform: [{ rotate: '180deg' }],
+  },
+  
+  // Property Dropdown
+  propertyDropdown: {
+    position: 'absolute',
+    top: 110,
+    left: 24,
+    right: 24,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  propertyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  propertyOptionActive: {
+    backgroundColor: `${ACCENT}15`,
+  },
+  propertyOptionIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  propertyOptionText: {
+    fontSize: 15,
+    color: '#ccc',
+    flex: 1,
+  },
+  propertyOptionTextActive: {
+    color: ACCENT,
+    fontWeight: '500',
+  },
+  propertyCheckmark: {
+    fontSize: 14,
+    color: ACCENT,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  primaryBadge: {
+    backgroundColor: `${ACCENT}20`,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  primaryBadgeText: {
+    fontSize: 10,
+    color: ACCENT,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  addPropertyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  addPropertyIcon: {
+    fontSize: 18,
+    color: ACCENT,
+    marginRight: 12,
+  },
+  addPropertyText: {
+    fontSize: 15,
+    color: ACCENT,
+    fontWeight: '500',
+  },
+  
+  // Add Property Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  addPropertyModal: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  addPropertyModalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#E0E0E0',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  addPropertyLabel: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  iconOption: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconOptionSelected: {
+    backgroundColor: `${ACCENT}25`,
+    borderWidth: 1,
+    borderColor: ACCENT,
+  },
+  iconOptionText: {
+    fontSize: 22,
+  },
+  addPropertyInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#E0E0E0',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  typeScrollView: {
+    marginHorizontal: -8,
+  },
+  typeContainer: {
+    paddingHorizontal: 8,
+    gap: 8,
+  },
+  typeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  typeOptionSelected: {
+    backgroundColor: `${ACCENT}20`,
+    borderColor: ACCENT,
+  },
+  typeOptionIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  typeOptionLabel: {
+    fontSize: 13,
+    color: '#888',
+  },
+  typeOptionLabelSelected: {
+    color: ACCENT,
+    fontWeight: '500',
+  },
+  addPropertyButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  addPropertyCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+  },
+  addPropertyCancelText: {
+    fontSize: 15,
+    color: '#888',
+    fontWeight: '500',
+  },
+  addPropertySaveBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: ACCENT,
+    alignItems: 'center',
+  },
+  addPropertySaveBtnDisabled: {
+    opacity: 0.4,
+  },
+  addPropertySaveText: {
+    fontSize: 15,
+    color: '#000',
+    fontWeight: '600',
   },
   
   // Tab Bar

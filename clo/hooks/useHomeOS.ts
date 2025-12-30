@@ -27,6 +27,14 @@ import {
   completeMaintenanceTask,
   getHomeAlerts,
   getHomeStats,
+  getProperties,
+  getProperty,
+  createProperty,
+  updateProperty,
+  deleteProperty,
+  setPrimaryProperty,
+  Property,
+  CreatePropertyInput,
 } from '@/services/homeosService';
 import {
   CreateInventoryItemInput,
@@ -312,3 +320,87 @@ export function useHomeStats() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
+
+// ============================================
+// PROPERTY HOOKS
+// ============================================
+
+export function useProperties() {
+  return useQuery({
+    queryKey: ['properties'],
+    queryFn: getProperties,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+}
+
+export function useProperty(id: string) {
+  return useQuery({
+    queryKey: ['properties', id],
+    queryFn: () => getProperty(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateProperty() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreatePropertyInput) => createProperty(input),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useUpdateProperty() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<CreatePropertyInput> }) =>
+      updateProperty(id, updates),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useDeleteProperty() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteProperty(id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useSetPrimaryProperty() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => setPrimaryProperty(id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+// Re-export types
+export type { Property, CreatePropertyInput };
