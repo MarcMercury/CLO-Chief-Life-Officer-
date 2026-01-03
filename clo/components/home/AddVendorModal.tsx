@@ -18,11 +18,13 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
-import { useCreateVendor, useUpdateVendor, useDeleteVendor } from '@/hooks/useHomeOS';
+import { useCreateVendor, useUpdateVendor, useDeleteVendor, useProperties } from '@/hooks/useHomeOS';
+import { usePropertyStore } from '@/store/propertyStore';
 import { CreateVendorInput, Vendor } from '@/types/homeos';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
 import { formatPhoneInput } from '@/lib/formatters';
+import { PropertyPicker } from './PropertyPicker';
 
 const TRADES = [
   { value: 'plumber', label: 'Plumber', icon: '🔧' },
@@ -48,14 +50,33 @@ export function AddVendorModal({ visible, onClose, editItem }: AddVendorModalPro
   const createVendor = useCreateVendor();
   const updateVendor = useUpdateVendor();
   const deleteVendor = useDeleteVendor();
+  const { data: properties = [] } = useProperties();
+  const { selectedPropertyId: currentViewProperty } = usePropertyStore();
   
   const isEditMode = !!editItem;
+  
+  // Get default property (current view or primary)
+  const getDefaultPropertyId = () => {
+    if (currentViewProperty && currentViewProperty !== 'all') {
+      return currentViewProperty;
+    }
+    const primary = properties.find(p => p.is_primary);
+    return primary?.id || properties[0]?.id || null;
+  };
   
   const [formData, setFormData] = useState<Partial<CreateVendorInput>>({
     trade: 'other',
     rating: 5,
   });
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Set default property when modal opens or properties load
+  useEffect(() => {
+    if (visible && !selectedPropertyId && properties.length > 0) {
+      setSelectedPropertyId(getDefaultPropertyId());
+    }
+  }, [visible, properties]);
 
   // Populate form when editing
   useEffect(() => {
@@ -69,6 +90,8 @@ export function AddVendorModal({ visible, onClose, editItem }: AddVendorModalPro
         rating: editItem.rating || 5,
         notes: editItem.notes || '',
       });
+      // Set property from edit item
+      setSelectedPropertyId((editItem as any).property_id || null);
     }
   }, [editItem]);
 
@@ -108,6 +131,7 @@ export function AddVendorModal({ visible, onClose, editItem }: AddVendorModalPro
         website: formData.website || undefined,
         rating: formData.rating || 5,
         notes: formData.notes || undefined,
+        property_id: selectedPropertyId || undefined,
       };
 
       if (isEditMode && editItem) {
@@ -152,6 +176,7 @@ export function AddVendorModal({ visible, onClose, editItem }: AddVendorModalPro
 
   const handleClose = () => {
     setFormData({ trade: 'other', rating: 5 });
+    setSelectedPropertyId(null);
     setErrors({});
     onClose();
   };
@@ -201,6 +226,14 @@ export function AddVendorModal({ visible, onClose, editItem }: AddVendorModalPro
               style={styles.form}
               showsVerticalScrollIndicator={false}
             >
+              {/* Property Selector - Only show if multiple properties */}
+              <PropertyPicker
+                selectedPropertyId={selectedPropertyId}
+                onSelect={setSelectedPropertyId}
+                label="Add to Property"
+                accentColor={colors.home}
+              />
+
               {/* Name */}
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Company/Person Name *</Text>

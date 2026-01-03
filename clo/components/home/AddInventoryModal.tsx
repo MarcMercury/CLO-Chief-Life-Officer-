@@ -18,11 +18,13 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
-import { useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem } from '@/hooks/useHomeOS';
+import { useCreateInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem, useProperties } from '@/hooks/useHomeOS';
+import { usePropertyStore } from '@/store/propertyStore';
 import { InventoryCategory, CreateInventoryItemInput, HomeInventoryItem } from '@/types/homeos';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
 import { formatDateInput, parseDateInput, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
+import { PropertyPicker } from './PropertyPicker';
 
 const CATEGORIES: { value: InventoryCategory; label: string; icon: string }[] = [
   { value: 'appliance', label: 'Appliance', icon: '🔌' },
@@ -45,13 +47,32 @@ export function AddInventoryModal({ visible, onClose, editItem }: AddInventoryMo
   const createItem = useCreateInventoryItem();
   const updateItem = useUpdateInventoryItem();
   const deleteItem = useDeleteInventoryItem();
+  const { data: properties = [] } = useProperties();
+  const { selectedPropertyId: currentViewProperty } = usePropertyStore();
   
   const isEditMode = !!editItem;
+  
+  // Get default property (current view or primary)
+  const getDefaultPropertyId = () => {
+    if (currentViewProperty && currentViewProperty !== 'all') {
+      return currentViewProperty;
+    }
+    const primary = properties.find(p => p.is_primary);
+    return primary?.id || properties[0]?.id || null;
+  };
   
   const [formData, setFormData] = useState<Partial<CreateInventoryItemInput>>({
     category: 'other',
   });
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Set default property when modal opens or properties load
+  useEffect(() => {
+    if (visible && !selectedPropertyId && properties.length > 0) {
+      setSelectedPropertyId(getDefaultPropertyId());
+    }
+  }, [visible, properties]);
 
   // Populate form when editing
   useEffect(() => {
@@ -70,6 +91,8 @@ export function AddInventoryModal({ visible, onClose, editItem }: AddInventoryMo
         location_in_home: editItem.location_in_home || '',
         barcode: editItem.barcode || '',
       });
+      // Set property from edit item
+      setSelectedPropertyId((editItem as any).property_id || null);
     }
   }, [editItem]);
 
@@ -130,6 +153,7 @@ export function AddInventoryModal({ visible, onClose, editItem }: AddInventoryMo
         notes: formData.notes || undefined,
         location_in_home: formData.location_in_home || undefined,
         barcode: formData.barcode || undefined,
+        property_id: selectedPropertyId || undefined,
       };
 
       if (isEditMode && editItem) {
@@ -174,6 +198,7 @@ export function AddInventoryModal({ visible, onClose, editItem }: AddInventoryMo
 
   const handleClose = () => {
     setFormData({ category: 'other' });
+    setSelectedPropertyId(null);
     setErrors({});
     onClose();
   };
@@ -233,6 +258,14 @@ export function AddInventoryModal({ visible, onClose, editItem }: AddInventoryMo
               style={styles.form}
               showsVerticalScrollIndicator={false}
             >
+              {/* Property Selector - Only show if multiple properties */}
+              <PropertyPicker
+                selectedPropertyId={selectedPropertyId}
+                onSelect={setSelectedPropertyId}
+                label="Add to Property"
+                accentColor={colors.home}
+              />
+
               {/* Barcode Scanner Button */}
               <TouchableOpacity
                 style={styles.scanButton}

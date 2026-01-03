@@ -25,11 +25,18 @@ import {
 // INVENTORY OPERATIONS
 // ============================================
 
-export async function getInventoryItems(): Promise<HomeInventoryItem[]> {
-  const { data, error } = await (supabase as any)
+export async function getInventoryItems(propertyId?: string | null): Promise<HomeInventoryItem[]> {
+  let query = (supabase as any)
     .from('home_inventory')
     .select('*')
     .order('created_at', { ascending: false });
+
+  // Filter by property if specified (and not 'all')
+  if (propertyId && propertyId !== 'all') {
+    query = query.eq('property_id', propertyId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Failed to fetch inventory:', error);
@@ -82,6 +89,7 @@ export async function createInventoryItem(
       barcode: input.barcode,
       notes: input.notes,
       product_image_url: input.photo_url,
+      property_id: (input as any).property_id,
     })
     .select()
     .single();
@@ -145,11 +153,18 @@ export async function deleteInventoryItem(id: string): Promise<{ success: boolea
 // SUBSCRIPTION OPERATIONS
 // ============================================
 
-export async function getSubscriptions(): Promise<Subscription[]> {
-  const { data, error } = await (supabase as any)
+export async function getSubscriptions(propertyId?: string | null): Promise<Subscription[]> {
+  let query = (supabase as any)
     .from('subscriptions')
     .select('*')
     .order('next_billing_date', { ascending: true });
+
+  // Filter by property if specified (and not 'all')
+  if (propertyId && propertyId !== 'all') {
+    query = query.eq('property_id', propertyId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Failed to fetch subscriptions:', error);
@@ -196,6 +211,7 @@ export async function createSubscription(
       next_billing_date: input.next_billing_date,
       status: 'ACTIVE',
       importance: 'OPTIONAL',
+      property_id: (input as any).property_id,
     })
     .select()
     .single();
@@ -255,11 +271,18 @@ export async function cancelSubscription(id: string): Promise<{ success: boolean
 // VENDOR OPERATIONS
 // ============================================
 
-export async function getVendors(): Promise<Vendor[]> {
-  const { data, error } = await (supabase as any)
+export async function getVendors(propertyId?: string | null): Promise<Vendor[]> {
+  let query = (supabase as any)
     .from('vendors')
     .select('*')
     .order('last_service_date', { ascending: false, nullsFirst: false });
+
+  // Filter by property if specified (and not 'all')
+  if (propertyId && propertyId !== 'all') {
+    query = query.eq('property_id', propertyId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Failed to fetch vendors:', error);
@@ -322,6 +345,7 @@ export async function createVendor(
       website: input.website,
       rating: input.rating,
       notes: input.notes,
+      property_id: (input as any).property_id,
     })
     .select()
     .single();

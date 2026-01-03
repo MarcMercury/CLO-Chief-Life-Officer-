@@ -18,11 +18,13 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
-import { useCreateSubscription, useUpdateSubscription, useCancelSubscription } from '@/hooks/useHomeOS';
+import { useCreateSubscription, useUpdateSubscription, useCancelSubscription, useProperties } from '@/hooks/useHomeOS';
+import { usePropertyStore } from '@/store/propertyStore';
 import { CreateSubscriptionInput, SubscriptionFrequency, SubscriptionCategory, Subscription } from '@/types/homeos';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
 import { formatDateInput, parseDateInput, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
+import { PropertyPicker } from './PropertyPicker';
 
 const BILLING_CYCLES: { value: SubscriptionFrequency; label: string }[] = [
   { value: 'monthly', label: 'Monthly' },
@@ -50,15 +52,34 @@ export function AddSubscriptionModal({ visible, onClose, editItem }: AddSubscrip
   const createSub = useCreateSubscription();
   const updateSub = useUpdateSubscription();
   const cancelSub = useCancelSubscription();
+  const { data: properties = [] } = useProperties();
+  const { selectedPropertyId: currentViewProperty } = usePropertyStore();
   
   const isEditMode = !!editItem;
+  
+  // Get default property (current view or primary)
+  const getDefaultPropertyId = () => {
+    if (currentViewProperty && currentViewProperty !== 'all') {
+      return currentViewProperty;
+    }
+    const primary = properties.find(p => p.is_primary);
+    return primary?.id || properties[0]?.id || null;
+  };
   
   const [formData, setFormData] = useState<Partial<CreateSubscriptionInput>>({
     frequency: 'monthly',
     category: 'other',
     auto_renew: true,
   });
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Set default property when modal opens or properties load
+  useEffect(() => {
+    if (visible && !selectedPropertyId && properties.length > 0) {
+      setSelectedPropertyId(getDefaultPropertyId());
+    }
+  }, [visible, properties]);
 
   // Populate form when editing
   useEffect(() => {
@@ -74,6 +95,8 @@ export function AddSubscriptionModal({ visible, onClose, editItem }: AddSubscrip
         cancellation_instructions: editItem.cancellation_instructions || '',
         notes: editItem.notes || '',
       });
+      // Set property from edit item
+      setSelectedPropertyId((editItem as any).property_id || null);
     }
   }, [editItem]);
 
@@ -125,6 +148,7 @@ export function AddSubscriptionModal({ visible, onClose, editItem }: AddSubscrip
         cancellation_instructions: formData.cancellation_instructions || undefined,
         auto_renew: formData.auto_renew,
         notes: formData.notes || undefined,
+        property_id: selectedPropertyId || undefined,
       };
 
       if (isEditMode && editItem) {
@@ -173,6 +197,7 @@ export function AddSubscriptionModal({ visible, onClose, editItem }: AddSubscrip
       category: 'other',
       auto_renew: true,
     });
+    setSelectedPropertyId(null);
     setErrors({});
     onClose();
   };
@@ -222,6 +247,14 @@ export function AddSubscriptionModal({ visible, onClose, editItem }: AddSubscrip
               style={styles.form}
               showsVerticalScrollIndicator={false}
             >
+              {/* Property Selector - Only show if multiple properties */}
+              <PropertyPicker
+                selectedPropertyId={selectedPropertyId}
+                onSelect={setSelectedPropertyId}
+                label="Add to Property"
+                accentColor={colors.home}
+              />
+
               {/* Service Name */}
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Service Name *</Text>

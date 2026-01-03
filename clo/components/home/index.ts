@@ -12,3 +12,4 @@ export { VendorSection } from './VendorSection';
 export { AddVendorModal } from './AddVendorModal';
 export { MaintenanceSection } from './MaintenanceSection';
 export { AddWikiModal } from './AddWikiModal';
+export { PropertySelector } from './PropertySelector';

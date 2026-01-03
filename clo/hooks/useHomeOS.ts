@@ -6,6 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import { usePropertyStore } from '@/store/propertyStore';
 import {
   getInventoryItems,
   getInventoryItem,
@@ -50,9 +51,11 @@ import {
 // ============================================
 
 export function useInventory() {
+  const { selectedPropertyId } = usePropertyStore();
+  
   return useQuery({
-    queryKey: ['inventory'],
-    queryFn: getInventoryItems,
+    queryKey: ['inventory', selectedPropertyId],
+    queryFn: () => getInventoryItems(selectedPropertyId),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -119,9 +122,11 @@ export function useDeleteInventoryItem() {
 // ============================================
 
 export function useSubscriptions() {
+  const { selectedPropertyId } = usePropertyStore();
+  
   return useQuery({
-    queryKey: ['subscriptions'],
-    queryFn: getSubscriptions,
+    queryKey: ['subscriptions', selectedPropertyId],
+    queryFn: () => getSubscriptions(selectedPropertyId),
     staleTime: 1000 * 60 * 5,
   });
 }
@@ -181,9 +186,11 @@ export function useCancelSubscription() {
 // ============================================
 
 export function useVendors() {
+  const { selectedPropertyId } = usePropertyStore();
+  
   return useQuery({
-    queryKey: ['vendors'],
-    queryFn: getVendors,
+    queryKey: ['vendors', selectedPropertyId],
+    queryFn: () => getVendors(selectedPropertyId),
     staleTime: 1000 * 60 * 5,
   });
 }

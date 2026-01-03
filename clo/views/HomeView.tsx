@@ -28,7 +28,7 @@ import Animated, {
   SlideOutRight,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { AddInventoryModal, AddSubscriptionModal, AddVendorModal, AddWikiModal } from '../components/home';
+import { AddInventoryModal, AddSubscriptionModal, AddVendorModal, AddWikiModal, PropertySelector } from '../components/home';
 import { WikiEntry } from '../components/home/AddWikiModal';
 import { 
   useInventory, 
@@ -40,6 +40,7 @@ import {
   useProperties,
   useCreateProperty,
 } from '@/hooks/useHomeOS';
+import { usePropertyStore } from '@/store/propertyStore';
 import { HomeInventoryItem, Subscription, Vendor } from '@/types/homeos';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 
@@ -756,12 +757,9 @@ export default function HomeView() {
       {/* Header */}
       <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerEmoji}>🏠</Text>
-          <View>
-            <Text style={styles.title}>Home</Text>
-            <Text style={styles.subtitle}>Your household command center</Text>
-          </View>
+          <PropertySelector accentColor={ACCENT} />
         </View>
+        <Text style={styles.subtitle}>Your household command center</Text>
       </Animated.View>
 
       {/* Tile Grid */}
