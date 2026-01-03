@@ -136,9 +136,9 @@ export default function OrbitalControl() {
   };
   
   return (
-    <View style={styles.container}>
-      {/* Venn Diagram Background */}
-      <View style={styles.vennContainer}>
+    <View style={styles.container} pointerEvents="box-none">
+      {/* Venn Diagram Background - pointerEvents none so touches pass through */}
+      <View style={styles.vennContainer} pointerEvents="none">
         <Svg width={SVG_SIZE} height={SVG_SIZE} style={styles.vennSvg}>
           <Defs>
             {/* Self gradient */}
@@ -193,7 +193,7 @@ export default function OrbitalControl() {
         </Svg>
 
         {/* Direction labels positioned around Venn diagram */}
-        <View style={styles.labelsContainer}>
+        <View style={styles.labelsContainer} pointerEvents="none">
           <Text style={[styles.label, styles.labelLeft, { color: colors.self }]}>
             ← Self
           </Text>
@@ -206,7 +206,7 @@ export default function OrbitalControl() {
         </View>
       </View>
       
-      {/* Center Orb - Gesture Controller */}
+      {/* Center Orb - Gesture Controller - This is the only touch target */}
       <GestureDetector gesture={composedGesture}>
         <Animated.View 
           style={[
