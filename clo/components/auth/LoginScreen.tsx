@@ -147,16 +147,23 @@ export default function LoginScreen() {
   };
 
   const handleGoogleAuth = async () => {
-    setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const { error } = await signInWithGoogle();
-
-    setIsLoading(false);
-
-    if (error) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Authentication Error', error.message);
+    try {
+      const { error } = await signInWithGoogle();
+      
+      // Note: For OAuth, this returns immediately as the browser opens.
+      // The actual auth completion happens via callback/deep link.
+      // Don't set loading state for OAuth - it confuses users.
+      
+      if (error) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Authentication Error', error.message);
+      }
+      // If no error, OAuth flow is starting - browser will open
+    } catch (e) {
+      console.error('Google auth error:', e);
+      Alert.alert('Error', 'Failed to start Google sign-in. Please try again.');
     }
   };
 
@@ -258,7 +265,7 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, styles.secondaryButton]}
+            style={[styles.button, styles.secondaryButton, isLoading && styles.buttonDisabled]}
             onPress={handleGoogleAuth}
             disabled={isLoading}
             activeOpacity={0.8}
