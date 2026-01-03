@@ -1,14 +1,14 @@
 import React, { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Slot } from 'expo-router';
-import { useUIStore } from '../../store/uiStore';
+import { useTheme } from '@/providers/ThemeProvider';
 import OrbitalControl from '../../components/navigation/OrbitalControl';
 
 function MainLayout() {
-  const { themeColors } = useUIStore();
+  const { colors } = useTheme();
   
   return (
-    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         <Slot />
       </View>

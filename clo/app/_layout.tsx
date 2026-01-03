@@ -1,11 +1,11 @@
 import '../global.css';
 import 'react-native-gesture-handler';
-import { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, SplashScreen } from 'expo-router';
 import { AuthProvider } from '@/providers/AuthProvider';
-import { ThemeProvider } from '@/providers/ThemeProvider';
+import { ThemeProvider, useTheme } from '@/providers/ThemeProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -29,6 +29,18 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Inner component that can use useTheme() since it's inside ThemeProvider
+function ThemedApp() {
+  const { theme, colors } = useTheme();
+  
+  return (
+    <View style={[styles.themedContainer, { backgroundColor: colors.background }]}>
+      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
+      <Slot />
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -57,8 +69,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>
-            <StatusBar style="light" />
-            <Slot />
+            <ThemedApp />
           </AuthProvider>
         </ThemeProvider>
       </QueryClientProvider>
@@ -69,6 +80,8 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+  },
+  themedContainer: {
+    flex: 1,
   },
 });

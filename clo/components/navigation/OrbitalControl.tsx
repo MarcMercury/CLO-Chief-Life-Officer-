@@ -12,7 +12,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { useRouter, usePathname } from 'expo-router';
 import haptics from '@/lib/haptics';
 import { useUIStore, ActiveCircle } from '../../store/uiStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 
 const SWIPE_THRESHOLD = 40;
 const ORB_SIZE = 48;
@@ -25,7 +25,8 @@ const CENTER_X = SVG_SIZE / 2;
 const CENTER_Y = SVG_SIZE / 2 + 10; // Slightly lower to account for top circle
 
 export default function OrbitalControl() {
-  const { activeCircle, setActiveCircle, themeColors } = useUIStore();
+  const { activeCircle, setActiveCircle, circleAccent } = useUIStore();
+  const { colors } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
   
@@ -219,10 +220,10 @@ export default function OrbitalControl() {
           style={[
             styles.orb, 
             animatedStyle,
-            { borderColor: themeColors.accent }
+            { borderColor: circleAccent }
           ]}
         >
-          <Text style={[styles.orbText, { color: themeColors.accent }]}>
+          <Text style={[styles.orbText, { color: circleAccent }]}>
             {getCircleIndicator()}
           </Text>
         </Animated.View>
