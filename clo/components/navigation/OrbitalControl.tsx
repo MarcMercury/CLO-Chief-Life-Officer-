@@ -13,15 +13,15 @@ import haptics from '@/lib/haptics';
 import { useUIStore, ActiveCircle } from '../../store/uiStore';
 import { colors } from '@/constants/theme';
 
-const SWIPE_THRESHOLD = 50;
-const ORB_SIZE = 64;
+const SWIPE_THRESHOLD = 40;
+const ORB_SIZE = 48;
 
-// Venn diagram circle dimensions
-const VENN_CIRCLE_RADIUS = 85;
-const VENN_STROKE_WIDTH = 1.5;
-const SVG_SIZE = 320;
+// Venn diagram circle dimensions - COMPACT VERSION
+const VENN_CIRCLE_RADIUS = 55;
+const VENN_STROKE_WIDTH = 1;
+const SVG_SIZE = 200;
 const CENTER_X = SVG_SIZE / 2;
-const CENTER_Y = SVG_SIZE / 2 + 15; // Slightly lower to account for top circle
+const CENTER_Y = SVG_SIZE / 2 + 10; // Slightly lower to account for top circle
 
 export default function OrbitalControl() {
   const { activeCircle, setActiveCircle, themeColors } = useUIStore();
@@ -227,12 +227,12 @@ export default function OrbitalControl() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 10,
     left: 0,
     right: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 200,
+    height: 130,
   },
   vennContainer: {
     position: 'absolute',
@@ -251,44 +251,44 @@ const styles = StyleSheet.create({
   },
   label: {
     position: 'absolute',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '500',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   labelLeft: {
-    left: 10,
+    left: 5,
     top: '55%',
   },
   labelRight: {
-    right: 5,
+    right: 0,
     top: '55%',
   },
   labelTop: {
-    top: 20,
+    top: 10,
     left: '50%',
-    transform: [{ translateX: -25 }],
+    transform: [{ translateX: -22 }],
   },
   orb: {
     width: ORB_SIZE,
     height: ORB_SIZE,
     borderRadius: ORB_SIZE / 2,
     backgroundColor: 'rgba(20, 20, 20, 0.95)',
-    borderWidth: 2,
+    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
     // Glow effect
     shadowColor: '#fff',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 6,
     zIndex: 10,
   },
   orbText: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
   },
 });

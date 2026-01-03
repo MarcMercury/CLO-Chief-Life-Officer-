@@ -394,8 +394,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   
-  // Bottom spacer
+  // Bottom spacer - extra space for orbital control
   bottomSpacer: {
-    height: 100,
+    height: 160,
   },
 });

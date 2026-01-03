@@ -714,7 +714,7 @@ const styles = StyleSheet.create({
   hintContainer: {
     alignItems: 'center',
     paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingBottom: 160, // Extra space for orbital control
   },
   hint: {
     fontSize: 14,

@@ -1330,7 +1330,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 120,
+    paddingBottom: 160, // Extra space for orbital control
   },
   loadingContainer: {
     flex: 1,

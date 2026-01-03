@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useIntegrations } from '@/hooks/useIntegrations';
+import { useAuth } from '@/providers/AuthProvider';
 import { IntegrationCard } from '@/components/settings/IntegrationCard';
 import { IntegrationProvider } from '@/types/integrations';
 import theme from '@/constants/theme';
@@ -23,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 
 export default function IntegrationsScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const {
     isLoading,
     refetch,
@@ -213,6 +215,21 @@ export default function IntegrationsScreen() {
           ))}
         </View>
 
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>⚙️ Account</Text>
+          <TouchableOpacity
+            style={styles.signOutButton}
+            onPress={async () => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              await signOut();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Your credentials are encrypted and stored securely.
@@ -290,5 +307,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textTertiary,
     textAlign: 'center',
+  },
+  signOutButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    alignItems: 'center',
+  },
+  signOutText: {
+    color: '#EF4444',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
