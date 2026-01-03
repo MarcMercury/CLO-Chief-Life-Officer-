@@ -23,16 +23,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/providers/AuthProvider';
+import { useTheme, ThemeMode } from '@/providers/ThemeProvider';
 import theme from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 
-type VisualMode = 'dark' | 'light' | 'clo';
-
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const [visualMode, setVisualMode] = useState<VisualMode>('clo');
+  const { themeMode, setThemeMode, colors } = useTheme();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -48,20 +47,9 @@ export default function SettingsScreen() {
   };
 
   // Visual Mode handlers
-  const handleVisualModeChange = async (mode: VisualMode) => {
+  const handleVisualModeChange = async (mode: ThemeMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    if (mode === 'clo') {
-      // CLO theme is the current active theme - no alert needed, just select it
-      setVisualMode('clo');
-    } else {
-      // Dark and Light modes are not yet implemented
-      Alert.alert(
-        'Coming Soon',
-        `${mode.charAt(0).toUpperCase() + mode.slice(1)} mode will be available in a future update.`
-      );
-      // Keep CLO selected since other themes aren't implemented
-    }
+    setThemeMode(mode);
   };
 
   // Contact handler
@@ -173,13 +161,13 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={[styles.backText, { color: colors.self }]}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Settings</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -190,73 +178,78 @@ export default function SettingsScreen() {
       >
         {/* User Info */}
         {user && (
-          <View style={styles.userCard}>
-            <View style={styles.userAvatar}>
+          <View style={[styles.userCard, { backgroundColor: colors.surface }]}>
+            <View style={[styles.userAvatar, { backgroundColor: colors.self }]}>
               <Text style={styles.userAvatarText}>
                 {user.email?.charAt(0).toUpperCase() || '?'}
               </Text>
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>{user.email}</Text>
-              <Text style={styles.userSub}>CLO Member</Text>
+              <Text style={[styles.userName, { color: colors.textPrimary }]}>{user.email}</Text>
+              <Text style={[styles.userSub, { color: colors.textSecondary }]}>CLO Member</Text>
             </View>
           </View>
         )}
 
         {/* Integrations Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🔌 Connections</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>🔌 Connections</Text>
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, { backgroundColor: colors.surface }]}
             onPress={() => navigateTo('/settings/integrations')}
           >
             <View style={styles.menuItemLeft}>
               <Text style={styles.menuItemIcon}>🔗</Text>
               <View>
-                <Text style={styles.menuItemText}>Integrations</Text>
-                <Text style={styles.menuItemSub}>Connect apps & services</Text>
+                <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Integrations</Text>
+                <Text style={[styles.menuItemSub, { color: colors.textSecondary }]}>Connect apps & services</Text>
               </View>
             </View>
-            <Text style={styles.menuArrow}>→</Text>
+            <Text style={[styles.menuArrow, { color: colors.textSecondary }]}>→</Text>
           </TouchableOpacity>
         </View>
 
         {/* Visual Mode Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎨 Visual Mode</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>🎨 Visual Mode</Text>
           <View style={styles.themeOptions}>
             <TouchableOpacity
               style={[
                 styles.themeOption,
-                visualMode === 'dark' && styles.themeOptionActive,
+                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                themeMode === 'dark' && [styles.themeOptionActive, { borderColor: colors.self }],
               ]}
               onPress={() => handleVisualModeChange('dark')}
             >
               <Text style={styles.themeEmoji}>🌙</Text>
               <Text style={[
                 styles.themeLabel,
-                visualMode === 'dark' && styles.themeLabelActive,
+                { color: colors.textSecondary },
+                themeMode === 'dark' && [styles.themeLabelActive, { color: colors.textPrimary }],
               ]}>Dark</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.themeOption,
-                visualMode === 'light' && styles.themeOptionActive,
+                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                themeMode === 'light' && [styles.themeOptionActive, { borderColor: colors.self }],
               ]}
               onPress={() => handleVisualModeChange('light')}
             >
               <Text style={styles.themeEmoji}>☀️</Text>
               <Text style={[
                 styles.themeLabel,
-                visualMode === 'light' && styles.themeLabelActive,
+                { color: colors.textSecondary },
+                themeMode === 'light' && [styles.themeLabelActive, { color: colors.textPrimary }],
               ]}>Light</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.themeOption,
-                visualMode === 'clo' && styles.themeOptionActive,
+                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                themeMode === 'clo' && [styles.themeOptionActive, { borderColor: colors.self }],
                 styles.themeOptionCLO,
               ]}
               onPress={() => handleVisualModeChange('clo')}
@@ -264,57 +257,58 @@ export default function SettingsScreen() {
               <Text style={styles.themeEmoji}>✨</Text>
               <Text style={[
                 styles.themeLabel,
-                visualMode === 'clo' && styles.themeLabelActive,
+                { color: colors.textSecondary },
+                themeMode === 'clo' && [styles.themeLabelActive, { color: colors.textPrimary }],
               ]}>CLO</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.themeHint}>
+          <Text style={[styles.themeHint, { color: colors.textTertiary }]}>
             CLO uses the soft color palette from the app icon
           </Text>
         </View>
 
         {/* Admin Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>⚙️ Admin</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>⚙️ Admin</Text>
           
-          <TouchableOpacity style={styles.menuItem} onPress={handlePrivacyPolicy}>
+          <TouchableOpacity style={[styles.menuItem, { backgroundColor: colors.surface }]} onPress={handlePrivacyPolicy}>
             <View style={styles.menuItemLeft}>
               <Text style={styles.menuItemIcon}>📜</Text>
-              <Text style={styles.menuItemText}>Privacy Policy</Text>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Privacy Policy</Text>
             </View>
-            <Text style={styles.menuArrow}>↗</Text>
+            <Text style={[styles.menuArrow, { color: colors.textSecondary }]}>↗</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={handleContact}>
+          <TouchableOpacity style={[styles.menuItem, { backgroundColor: colors.surface }]} onPress={handleContact}>
             <View style={styles.menuItemLeft}>
               <Text style={styles.menuItemIcon}>✉️</Text>
-              <Text style={styles.menuItemText}>Contact Support</Text>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Contact Support</Text>
             </View>
-            <Text style={styles.menuArrow}>↗</Text>
+            <Text style={[styles.menuArrow, { color: colors.textSecondary }]}>↗</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.menuItem, styles.dangerItem]} 
+            style={[styles.menuItem, styles.dangerItem, { backgroundColor: colors.surface }]} 
             onPress={openDeleteModal}
           >
             <View style={styles.menuItemLeft}>
               <Text style={styles.menuItemIcon}>🗑️</Text>
-              <Text style={styles.dangerText}>Delete Account</Text>
+              <Text style={[styles.dangerText, { color: colors.error }]}>Delete Account</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Sign Out */}
         <View style={styles.section}>
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+          <TouchableOpacity style={[styles.signOutButton, { borderColor: colors.border }]} onPress={handleSignOut}>
+            <Text style={[styles.signOutText, { color: colors.textSecondary }]}>Sign Out</Text>
           </TouchableOpacity>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>CLO - Chief Life Officer</Text>
-          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <Text style={[styles.footerText, { color: colors.textTertiary }]}>CLO - Chief Life Officer</Text>
+          <Text style={[styles.versionText, { color: colors.textMuted }]}>Version 1.0.0</Text>
         </View>
       </ScrollView>
 
@@ -325,21 +319,21 @@ export default function SettingsScreen() {
         animationType="fade"
         onRequestClose={() => setShowDeleteModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>⚠️ Delete Account</Text>
-            <Text style={styles.modalText}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>⚠️ Delete Account</Text>
+            <Text style={[styles.modalText, { color: colors.textSecondary }]}>
               This will permanently delete your account and all associated data. This action cannot be undone.
             </Text>
-            <Text style={styles.modalText}>
+            <Text style={[styles.modalText, { color: colors.textSecondary }]}>
               To confirm, please enter your email address:
             </Text>
-            <Text style={styles.emailHint}>{user?.email}</Text>
+            <Text style={[styles.emailHint, { color: colors.textPrimary }]}>{user?.email}</Text>
             
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
               placeholder="Enter your email"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textTertiary}
               value={deleteConfirmEmail}
               onChangeText={setDeleteConfirmEmail}
               autoCapitalize="none"
@@ -349,19 +343,20 @@ export default function SettingsScreen() {
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={styles.modalCancelButton}
+                style={[styles.modalCancelButton, { borderColor: colors.border }]}
                 onPress={() => {
                   setShowDeleteModal(false);
                   setDeleteConfirmEmail('');
                 }}
                 disabled={isDeleting}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.modalDeleteButton,
+                  { backgroundColor: colors.error },
                   (!deleteConfirmEmail || isDeleting) && styles.modalButtonDisabled,
                 ]}
                 onPress={handleDeleteAccount}
