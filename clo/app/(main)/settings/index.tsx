@@ -50,23 +50,17 @@ export default function SettingsScreen() {
   // Visual Mode handlers
   const handleVisualModeChange = async (mode: VisualMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setVisualMode(mode);
     
-    // For now, provide feedback that theme is selected
-    // Full theme support requires updating the entire app's color system
     if (mode === 'clo') {
-      // CLO theme is the current default
-      Alert.alert(
-        '✨ CLO Theme Active',
-        'You\'re using the signature CLO theme with soft, warm colors.'
-      );
-    } else {
-      Alert.alert(
-        'Theme Selected',
-        `${mode.charAt(0).toUpperCase() + mode.slice(1)} mode is coming in a future update. For now, CLO theme remains active.`
-      );
-      // Reset back to CLO since other themes aren't implemented yet
+      // CLO theme is the current active theme - no alert needed, just select it
       setVisualMode('clo');
+    } else {
+      // Dark and Light modes are not yet implemented
+      Alert.alert(
+        'Coming Soon',
+        `${mode.charAt(0).toUpperCase() + mode.slice(1)} mode will be available in a future update.`
+      );
+      // Keep CLO selected since other themes aren't implemented
     }
   };
 
