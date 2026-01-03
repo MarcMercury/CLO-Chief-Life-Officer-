@@ -92,7 +92,8 @@ export default function InvitePartnerModal({ visible, onClose }: InvitePartnerMo
       { partner_email: email.trim() },
       {
         onSuccess: (capsule) => {
-          const code = (capsule as any).invite_token;
+          // Use invite_code (human-readable) if available, otherwise fall back to invite_token
+          const code = (capsule as any).invite_code || (capsule as any).invite_token;
           setInviteCode(code);
           setCapsuleId(capsule.id);
           setEmailSent((capsule as any).emailSent || false);
@@ -134,7 +135,7 @@ export default function InvitePartnerModal({ visible, onClose }: InvitePartnerMo
     if (inviteCode) {
       // Use Share API as a cross-platform solution
       await Share.share({
-        message: `Join my relationship capsule on CLO! Use this invite code: ${inviteCode.substring(0, 8).toUpperCase()}\n\nDownload CLO and enter this code to connect with me.`,
+        message: `Join my relationship capsule on CLO! Use this invite code: ${inviteCode.toUpperCase()}\n\nDownload CLO and enter this code to connect with me.`,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
@@ -226,7 +227,7 @@ export default function InvitePartnerModal({ visible, onClose }: InvitePartnerMo
 
               <TouchableOpacity style={styles.codeContainer} onPress={handleCopyCode}>
                 <Text style={styles.codeLabel}>Invite Code</Text>
-                <Text style={styles.code}>{inviteCode?.slice(0, 8).toUpperCase()}</Text>
+                <Text style={styles.code}>{inviteCode?.toUpperCase()}</Text>
                 <Text style={styles.copyHint}>Tap to share</Text>
               </TouchableOpacity>
 

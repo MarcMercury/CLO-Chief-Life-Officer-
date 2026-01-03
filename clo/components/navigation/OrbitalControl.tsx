@@ -9,6 +9,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { useRouter, usePathname } from 'expo-router';
 import haptics from '@/lib/haptics';
 import { useUIStore, ActiveCircle } from '../../store/uiStore';
 import { colors } from '@/constants/theme';
@@ -25,6 +26,8 @@ const CENTER_Y = SVG_SIZE / 2 + 10; // Slightly lower to account for top circle
 
 export default function OrbitalControl() {
   const { activeCircle, setActiveCircle, themeColors } = useUIStore();
+  const router = useRouter();
+  const pathname = usePathname();
   
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -37,6 +40,10 @@ export default function OrbitalControl() {
   const navigateTo = (circle: ActiveCircle) => {
     triggerHaptic();
     setActiveCircle(circle);
+    // If we're on a nested page (like settings), navigate back to main index
+    if (pathname !== '/' && pathname !== '') {
+      router.replace('/');
+    }
   };
   
   const panGesture = Gesture.Pan()

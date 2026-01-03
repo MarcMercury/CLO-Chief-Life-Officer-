@@ -1,17 +1,8 @@
 /**
- * SelfView - Rebuilt Personal Space
+ * SelfView - Tile-Based Personal Space
  * 
- * Structure:
- * 1. Daily 3 (Intention Engine) - Always at top
- * 2. 5 Category Modules in Accordion:
- *    - Mental (Read List, Learn List, Focus Timer)
- *    - Physical (Health Dashboard, Health Goals)
- *    - Emotional (Vibe Check, Burn Box, Gratitude)
- *    - Practical (Daily Tasks, List Maker, Financial Pulse)
- *    - Professional (Career Goals, Networking, Idea Vault)
- * 
- * NOTE: Scratchpad has been DELETED and replaced with 
- * specific lists inside the categories.
+ * Clean tile navigation that expands to full screen when selected.
+ * Tiles: Daily 3, Mental, Physical, Emotional, Practical, Professional
  */
 
 import React, { useState, useCallback } from 'react';
@@ -21,14 +12,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Dimensions,
 } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInUp,
-  FadeInDown,
-  useAnimatedStyle,
-  withTiming,
-  useSharedValue,
+  SlideInRight,
+  SlideOutRight,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius } from '../constants/theme';
@@ -43,16 +33,18 @@ import {
   ProfessionalModule,
 } from '../components/self';
 
-const ACCENT = colors.self;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const TILE_GAP = 12;
+const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - TILE_GAP) / 2;
 
 // ============================================
 // TYPES
 // ============================================
 
-type ModuleKey = 'mental' | 'physical' | 'emotional' | 'practical' | 'professional';
+type ModuleKey = 'daily3' | 'mental' | 'physical' | 'emotional' | 'practical' | 'professional' | null;
 
-interface ModuleConfig {
-  key: ModuleKey;
+interface TileConfig {
+  key: Exclude<ModuleKey, null>;
   label: string;
   icon: string;
   color: string;
@@ -60,10 +52,17 @@ interface ModuleConfig {
 }
 
 // ============================================
-// CONSTANTS
+// TILE CONFIGURATION
 // ============================================
 
-const MODULES: ModuleConfig[] = [
+const TILES: TileConfig[] = [
+  { 
+    key: 'daily3', 
+    label: 'Daily 3', 
+    icon: '🎯', 
+    color: '#10B981',
+    description: 'Your intentions'
+  },
   { 
     key: 'mental', 
     label: 'Mental', 
@@ -76,7 +75,7 @@ const MODULES: ModuleConfig[] = [
     label: 'Physical', 
     icon: '💪', 
     color: '#EF4444',
-    description: 'Health Dashboard • Goals'
+    description: 'Health & Goals'
   },
   { 
     key: 'emotional', 
@@ -90,78 +89,91 @@ const MODULES: ModuleConfig[] = [
     label: 'Practical', 
     icon: '🛠️', 
     color: '#F59E0B',
-    description: 'Tasks • Lists • Spending'
+    description: 'Tasks • Lists'
   },
   { 
     key: 'professional', 
     label: 'Professional', 
     icon: '💼', 
     color: '#3B82F6',
-    description: 'Goals • Network • Ideas'
+    description: 'Goals • Network'
   },
 ];
 
 // ============================================
-// ACCORDION ITEM COMPONENT
+// TILE COMPONENT
 // ============================================
 
-interface AccordionItemProps {
-  config: ModuleConfig;
-  isExpanded: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
+interface TileProps {
+  config: TileConfig;
   index: number;
+  onPress: () => void;
 }
 
-function AccordionItem({ config, isExpanded, onToggle, children, index }: AccordionItemProps) {
-  const rotation = useSharedValue(0);
-  
-  React.useEffect(() => {
-    rotation.value = withTiming(isExpanded ? 180 : 0, { duration: 200 });
-  }, [isExpanded]);
-  
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-  
+function Tile({ config, index, onPress }: TileProps) {
   return (
     <Animated.View 
-      entering={FadeInUp.delay(100 + index * 50).duration(300)}
-      style={styles.accordionItem}
+      entering={FadeInUp.delay(50 + index * 50).duration(300)}
     >
-      {/* Header */}
       <TouchableOpacity
-        style={[styles.accordionHeader, isExpanded && styles.accordionHeaderExpanded]}
+        style={[styles.tile, { backgroundColor: `${config.color}15` }]}
         onPress={() => {
-          Haptics.selectionAsync();
-          onToggle();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          onPress();
         }}
         activeOpacity={0.7}
       >
-        <View style={styles.accordionLeft}>
-          <View style={[styles.moduleIcon, { backgroundColor: `${config.color}20` }]}>
-            <Text style={styles.moduleIconText}>{config.icon}</Text>
-          </View>
-          <View style={styles.moduleInfo}>
-            <Text style={styles.moduleLabel}>{config.label}</Text>
-            <Text style={styles.moduleDesc}>{config.description}</Text>
-          </View>
-        </View>
-        
-        <Animated.View style={chevronStyle}>
-          <Text style={styles.chevron}>▼</Text>
-        </Animated.View>
+        <Text style={styles.tileIcon}>{config.icon}</Text>
+        <Text style={[styles.tileLabel, { color: config.color }]}>{config.label}</Text>
+        <Text style={styles.tileDescription}>{config.description}</Text>
       </TouchableOpacity>
-      
-      {/* Content */}
-      {isExpanded && (
-        <Animated.View 
-          entering={FadeInDown.duration(200)}
-          style={styles.accordionContent}
+    </Animated.View>
+  );
+}
+
+// ============================================
+// FULL SCREEN MODULE WRAPPER
+// ============================================
+
+interface ModuleScreenProps {
+  config: TileConfig;
+  onBack: () => void;
+  children: React.ReactNode;
+}
+
+function ModuleScreen({ config, onBack, children }: ModuleScreenProps) {
+  return (
+    <Animated.View 
+      entering={SlideInRight.duration(250)}
+      exiting={SlideOutRight.duration(200)}
+      style={styles.moduleScreen}
+    >
+      {/* Header */}
+      <View style={[styles.moduleHeader, { borderBottomColor: `${config.color}30` }]}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => {
+            Haptics.selectionAsync();
+            onBack();
+          }}
         >
-          {children}
-        </Animated.View>
-      )}
+          <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
+        <View style={styles.moduleTitleContainer}>
+          <Text style={styles.moduleHeaderIcon}>{config.icon}</Text>
+          <Text style={[styles.moduleTitle, { color: config.color }]}>{config.label}</Text>
+        </View>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Content */}
+      <ScrollView 
+        style={styles.moduleContent}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.moduleContentContainer}
+      >
+        {children}
+      </ScrollView>
     </Animated.View>
   );
 }
@@ -171,14 +183,20 @@ function AccordionItem({ config, isExpanded, onToggle, children, index }: Accord
 // ============================================
 
 export default function SelfView() {
-  const [expandedModule, setExpandedModule] = useState<ModuleKey | null>(null);
+  const [activeModule, setActiveModule] = useState<ModuleKey>(null);
   
-  const handleToggleModule = useCallback((key: ModuleKey) => {
-    setExpandedModule(prev => prev === key ? null : key);
+  const handleOpenModule = useCallback((key: ModuleKey) => {
+    setActiveModule(key);
+  }, []);
+
+  const handleBack = useCallback(() => {
+    setActiveModule(null);
   }, []);
   
   const renderModuleContent = (key: ModuleKey) => {
     switch (key) {
+      case 'daily3':
+        return <DailyIntentions />;
       case 'mental':
         return <MentalModule />;
       case 'physical':
@@ -194,10 +212,23 @@ export default function SelfView() {
     }
   };
 
+  // If a module is active, show full screen
+  if (activeModule) {
+    const config = TILES.find(t => t.key === activeModule)!;
+    return (
+      <View style={styles.container}>
+        <ModuleScreen config={config} onBack={handleBack}>
+          {renderModuleContent(activeModule)}
+        </ModuleScreen>
+      </View>
+    );
+  }
+
+  // Default: Show tile grid
   return (
     <View style={styles.container}>
       {/* Header */}
-      <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+      <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.headerEmoji}>🧘</Text>
           <View>
@@ -207,45 +238,20 @@ export default function SelfView() {
         </View>
       </Animated.View>
 
-      {/* Content */}
+      {/* Tile Grid */}
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.tilesContainer}
       >
-        {/* ============================================ */}
-        {/* SECTION 1: DAILY 3 (INTENTION ENGINE) */}
-        {/* ============================================ */}
-        <Animated.View entering={FadeInUp.delay(100)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionIcon}>🎯</Text>
-              <Text style={styles.sectionTitle}>Daily 3</Text>
-            </View>
-            <Text style={styles.sectionHint}>Set your intentions for today</Text>
-          </View>
-          
-          <DailyIntentions />
-        </Animated.View>
-
-        {/* ============================================ */}
-        {/* SECTION 2: CATEGORY MODULES (ACCORDION) */}
-        {/* ============================================ */}
-        <View style={styles.modulesSection}>
-          <Animated.View entering={FadeInUp.delay(200)} style={styles.modulesSectionHeader}>
-            <Text style={styles.modulesSectionTitle}>Your Modules</Text>
-          </Animated.View>
-          
-          {MODULES.map((module, index) => (
-            <AccordionItem
-              key={module.key}
-              config={module}
-              isExpanded={expandedModule === module.key}
-              onToggle={() => handleToggleModule(module.key)}
+        <View style={styles.tilesGrid}>
+          {TILES.map((tile, index) => (
+            <Tile
+              key={tile.key}
+              config={tile}
               index={index}
-            >
-              {renderModuleContent(module.key)}
-            </AccordionItem>
+              onPress={() => handleOpenModule(tile.key)}
+            />
           ))}
         </View>
 
@@ -265,6 +271,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -291,110 +299,94 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+
+  // Scroll & Grid
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
+  tilesContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingTop: spacing.md,
   },
-  
-  // Section styles
-  section: {
-    marginBottom: spacing.xl,
+  tilesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: TILE_GAP,
   },
-  sectionHeader: {
-    marginBottom: spacing.md,
+
+  // Tile
+  tile: {
+    width: TILE_SIZE,
+    height: TILE_SIZE,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  sectionTitleRow: {
+  tileIcon: {
+    fontSize: 36,
+    marginBottom: spacing.sm,
+  },
+  tileLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  tileDescription: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    textAlign: 'center',
+  },
+
+  // Module Screen (Full Screen View)
+  moduleScreen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  moduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    padding: spacing.sm,
+    minWidth: 70,
+  },
+  backText: {
+    color: colors.self,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  moduleTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  sectionIcon: {
-    fontSize: 20,
+  moduleHeaderIcon: {
+    fontSize: 24,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  sectionHint: {
-    fontSize: 13,
-    color: colors.textTertiary,
-    marginTop: 4,
-    marginLeft: 28,
-  },
-  
-  // Modules section
-  modulesSection: {
-    marginTop: spacing.md,
-  },
-  modulesSectionHeader: {
-    marginBottom: spacing.md,
-  },
-  modulesSectionTitle: {
+  moduleTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.textSecondary,
   },
-  
-  // Accordion styles
-  accordionItem: {
-    marginBottom: spacing.sm,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
+  headerSpacer: {
+    minWidth: 70,
   },
-  accordionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-  },
-  accordionHeaderExpanded: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  accordionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  moduleContent: {
     flex: 1,
   },
-  moduleIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+  moduleContentContainer: {
+    padding: spacing.lg,
+    paddingBottom: 160,
   },
-  moduleIconText: {
-    fontSize: 20,
-  },
-  moduleInfo: {
-    flex: 1,
-  },
-  moduleLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  moduleDesc: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 12,
-    color: colors.textTertiary,
-  },
-  accordionContent: {
-    padding: spacing.md,
-    paddingTop: spacing.sm,
-  },
-  
-  // Bottom spacer - extra space for orbital control
+
+  // Bottom spacer
   bottomSpacer: {
     height: 160,
   },

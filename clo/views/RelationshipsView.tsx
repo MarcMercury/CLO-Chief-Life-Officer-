@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useCapsules } from '../hooks/useCapsules';
+import { useCapsules, useJoinCapsule } from '../hooks/useCapsules';
 import InvitePartnerModal from '../components/relationships/InvitePartnerModal';
 
 const NEST_WARM = '#D4A574'; // Warm wood/straw color
@@ -20,12 +20,43 @@ const getHealthColor = (status: string) => {
 
 export default function RelationshipsView() {
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
+  const [isJoinModalVisible, setIsJoinModalVisible] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
   const router = useRouter();
   
-  const { data: nests, isLoading } = useCapsules();
+  const { data: nests, isLoading, refetch } = useCapsules();
+  const { mutate: joinCapsule, isPending: isJoining } = useJoinCapsule();
 
   const handleOpenNest = (nestId: string) => {
     router.push(`/capsule/${nestId}`);
+  };
+
+  const handleJoinWithCode = () => {
+    if (inviteCode.length < 6) {
+      Alert.alert('Invalid Code', 'Please enter the full invite code');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    joinCapsule(inviteCode.toUpperCase(), {
+      onSuccess: (result) => {
+        if (result?.success) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setIsJoinModalVisible(false);
+          setInviteCode('');
+          refetch();
+          Alert.alert('Success! 🪺', 'You\'ve joined the Nest!');
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert('Invalid Code', result?.error || 'Could not find a Nest with that code. Please check and try again.');
+        }
+      },
+      onError: (error) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Error', error.message || 'Failed to join Nest');
+      }
+    });
   };
 
   return (
@@ -58,15 +89,26 @@ export default function RelationshipsView() {
               <Text style={styles.nestCount}>
                 {nests.length} {nests.length === 1 ? 'Nest' : 'Nests'}
               </Text>
-              <TouchableOpacity 
-                style={styles.addButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setIsInviteModalVisible(true);
-                }}
-              >
-                <Text style={styles.addButtonText}>+ New Nest</Text>
-              </TouchableOpacity>
+              <View style={styles.headerButtons}>
+                <TouchableOpacity 
+                  style={styles.joinCodeButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setIsJoinModalVisible(true);
+                  }}
+                >
+                  <Text style={styles.joinCodeButtonText}>🔑 Join</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.addButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setIsInviteModalVisible(true);
+                  }}
+                >
+                  <Text style={styles.addButtonText}>+ New</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Nest Cards */}
@@ -127,6 +169,24 @@ export default function RelationshipsView() {
               <Text style={styles.createButtonIcon}>🪺</Text>
               <Text style={styles.createButtonText}>Create a Nest</Text>
             </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.orDivider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.orText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Join with Code Button */}
+            <TouchableOpacity 
+              style={styles.joinButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setIsJoinModalVisible(true);
+              }}
+            >
+              <Text style={styles.joinButtonText}>Join with Invite Code</Text>
+            </TouchableOpacity>
           </Animated.View>
         )}
       </ScrollView>
@@ -136,6 +196,61 @@ export default function RelationshipsView() {
         visible={isInviteModalVisible}
         onClose={() => setIsInviteModalVisible(false)}
       />
+
+      {/* Join with Code Modal */}
+      <Modal
+        visible={isJoinModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsJoinModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalEmoji}>🔑</Text>
+            <Text style={styles.modalTitle}>Join a Nest</Text>
+            <Text style={styles.modalSubtitle}>
+              Enter the invite code from your partner
+            </Text>
+
+            <TextInput
+              style={styles.codeInput}
+              placeholder="Enter code"
+              placeholderTextColor="#666"
+              value={inviteCode}
+              onChangeText={(text) => setInviteCode(text.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={8}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setIsJoinModalVisible(false);
+                  setInviteCode('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitButton, (inviteCode.length < 6 || isJoining) && styles.submitButtonDisabled]}
+                onPress={handleJoinWithCode}
+                disabled={inviteCode.length < 6 || isJoining}
+              >
+                {isJoining ? (
+                  <ActivityIndicator size="small" color="#1a1a1a" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Join</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -270,6 +385,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#888',
     fontWeight: '500',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  joinCodeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: `${NEST_WARM}50`,
+    backgroundColor: 'transparent',
+  },
+  joinCodeButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: NEST_WARM,
   },
   addButton: {
     backgroundColor: `${NEST_WARM}20`,
@@ -441,6 +573,122 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  
+  // Or divider
+  orDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+    width: '100%',
+    paddingHorizontal: 40,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  orText: {
+    color: '#666',
+    fontSize: 14,
+    marginHorizontal: 16,
+  },
+  
+  // Join button
+  joinButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: NEST_WARM,
+    backgroundColor: 'transparent',
+  },
+  joinButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: NEST_WARM,
+  },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 24,
+    padding: 32,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 165, 116, 0.2)',
+  },
+  modalEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#E8E8E8',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  codeInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#E8E8E8',
+    textAlign: 'center',
+    letterSpacing: 4,
+    width: '100%',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 165, 116, 0.2)',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#888',
+  },
+  submitButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 20,
+    backgroundColor: NEST_WARM,
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
+  },
+  submitButtonText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#1a1a1a',
   },

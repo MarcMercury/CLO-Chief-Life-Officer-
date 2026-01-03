@@ -248,6 +248,40 @@ export function useResendInviteEmail() {
   });
 }
 
+// Join a capsule using an invite code
+export function useJoinCapsule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (inviteCode: string): Promise<{ success: boolean; error?: string; capsule_id?: string }> => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Try the join_capsule_by_code RPC function first
+      const { data, error } = await (supabase.rpc as any)('join_capsule_by_code', {
+        code: inviteCode.toUpperCase().trim(),
+      });
+
+      if (error) {
+        console.error('Join capsule error:', error);
+        return { success: false, error: error.message };
+      }
+
+      // The RPC returns a JSON object with success/error
+      if (data?.success === false) {
+        return { success: false, error: data.error || 'Failed to join' };
+      }
+
+      return { success: true, capsule_id: data?.capsule_id };
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: capsuleKeys.all });
+      }
+    },
+  });
+}
+
 export function useAcceptInvite() {
   const queryClient = useQueryClient();
 

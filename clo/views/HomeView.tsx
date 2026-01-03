@@ -1,3 +1,10 @@
+/**
+ * HomeView - Tile-Based Home Management
+ * 
+ * Clean tile navigation that expands to full screen when selected.
+ * Tiles: Overview, Inventory, Bills, Vendors, Manual, Alerts
+ */
+
 import React, { useState, useCallback } from 'react';
 import { 
   View, 
@@ -11,8 +18,15 @@ import {
   Alert,
   Modal,
   Pressable,
+  Dimensions,
 } from 'react-native';
-import Animated, { FadeIn, FadeInUp, FadeInRight } from 'react-native-reanimated';
+import Animated, { 
+  FadeIn, 
+  FadeInUp, 
+  FadeInRight,
+  SlideInRight,
+  SlideOutRight,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { AddInventoryModal, AddSubscriptionModal, AddVendorModal, AddWikiModal } from '../components/home';
 import { WikiEntry } from '../components/home/AddWikiModal';
@@ -27,20 +41,33 @@ import {
   useCreateProperty,
 } from '@/hooks/useHomeOS';
 import { HomeInventoryItem, Subscription, Vendor } from '@/types/homeos';
-import { colors } from '@/constants/theme';
+import { colors, spacing, borderRadius } from '@/constants/theme';
 
 const ACCENT = colors.home;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const TILE_GAP = 12;
+const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - TILE_GAP) / 2;
 
-// Tab configuration
-type TabType = 'overview' | 'inventory' | 'subscriptions' | 'vendors' | 'wiki' | 'alerts';
+// ============================================
+// TYPES & CONFIGURATION
+// ============================================
 
-const TABS: { key: TabType; label: string; icon: string }[] = [
-  { key: 'overview', label: 'Overview', icon: '📊' },
-  { key: 'inventory', label: 'Inventory', icon: '📦' },
-  { key: 'subscriptions', label: 'Bills', icon: '💳' },
-  { key: 'vendors', label: 'Vendors', icon: '👷' },
-  { key: 'wiki', label: 'Manual', icon: '📖' },
-  { key: 'alerts', label: 'Alerts', icon: '🔔' },
+type TabType = 'overview' | 'inventory' | 'subscriptions' | 'vendors' | 'wiki' | 'alerts' | null;
+
+interface TileConfig {
+  key: Exclude<TabType, null>;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+const TILES: TileConfig[] = [
+  { key: 'overview', label: 'Overview', icon: '📊', color: '#10B981' },
+  { key: 'inventory', label: 'Inventory', icon: '📦', color: '#8B5CF6' },
+  { key: 'subscriptions', label: 'Bills', icon: '💳', color: '#F59E0B' },
+  { key: 'vendors', label: 'Vendors', icon: '👷', color: '#3B82F6' },
+  { key: 'wiki', label: 'Manual', icon: '📖', color: '#EC4899' },
+  { key: 'alerts', label: 'Alerts', icon: '🔔', color: '#EF4444' },
 ];
 
 // Category icons
@@ -61,15 +88,69 @@ const WIKI_ICONS: Record<string, string> = {
   appliance_tips: '💡', seasonal: '🌸', other: '📝',
 };
 
-// Mock wiki data (will be replaced with real data)
+// Mock wiki data
 const MOCK_WIKI_ENTRIES = [
   { id: '1', category: 'wifi_network', title: 'Home WiFi', content: 'Network: HomeNet_5G\nPassword: ********' },
   { id: '2', category: 'trash_schedule', title: 'Trash Pickup', content: 'Tuesday: Recycling\nFriday: Regular trash' },
   { id: '3', category: 'gate_codes', title: 'Gate Code', content: 'Main gate: 1234#\nGuest code: 5678#' },
 ];
 
+// Helper functions
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const isExpiringSoon = (dateStr: string) => {
+  const days = Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  return days <= 30;
+};
+
+const formatTrade = (trade: string | undefined) => {
+  if (!trade) return 'Service Provider';
+  return trade.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+};
+
+// ============================================
+// TILE COMPONENT
+// ============================================
+
+interface TileProps {
+  config: TileConfig;
+  index: number;
+  badge?: number;
+  onPress: () => void;
+}
+
+function Tile({ config, index, badge, onPress }: TileProps) {
+  return (
+    <Animated.View entering={FadeInUp.delay(50 + index * 50).duration(300)}>
+      <TouchableOpacity
+        style={[styles.tile, { backgroundColor: `${config.color}15` }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          onPress();
+        }}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.tileIcon}>{config.icon}</Text>
+        <Text style={[styles.tileLabel, { color: config.color }]}>{config.label}</Text>
+        {badge !== undefined && badge > 0 && (
+          <View style={[styles.tileBadge, { backgroundColor: config.color }]}>
+            <Text style={styles.tileBadgeText}>{badge}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
 export default function HomeView() {
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addModalType, setAddModalType] = useState<'inventory' | 'subscription'>('inventory');
   const [showVendorModal, setShowVendorModal] = useState(false);
@@ -78,39 +159,10 @@ export default function HomeView() {
   const [wikiEntries, setWikiEntries] = useState(MOCK_WIKI_ENTRIES);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Edit mode state for items
+  // Edit mode state
   const [editingInventoryItem, setEditingInventoryItem] = useState<HomeInventoryItem | null>(null);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  
-  // Property management state
-  const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
-  const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
-  const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
-  const [newPropertyName, setNewPropertyName] = useState('');
-  const [newPropertyAddress, setNewPropertyAddress] = useState('');
-  const [newPropertyIcon, setNewPropertyIcon] = useState('🏠');
-  const [newPropertyType, setNewPropertyType] = useState<'home' | 'vacation' | 'rental' | 'office' | 'storage' | 'vehicle' | 'other'>('home');
-  
-  // Fetch properties from database
-  const { data: dbProperties = [], isLoading: loadingProperties } = useProperties();
-  const createPropertyMutation = useCreateProperty();
-  
-  // Fallback to local property if database is empty (migration not run yet)
-  const defaultProperty = { id: 'default', name: 'Main House', icon: '🏠', is_primary: true };
-  const properties = dbProperties.length > 0 ? dbProperties : [defaultProperty];
-  
-  // Set initial active property when properties load
-  React.useEffect(() => {
-    if (properties.length > 0 && !activePropertyId) {
-      const primary = properties.find(p => p.is_primary) || properties[0];
-      setActivePropertyId(primary.id);
-    }
-  }, [properties, activePropertyId]);
-  
-  // Get active property object
-  const activeProperty = properties.find(p => p.id === activePropertyId) || properties[0];
-  const activePropertyName = activeProperty?.name || 'Main House';
   
   // Fetch data
   const { data: inventory = [], isLoading: loadingInventory } = useInventory();
@@ -118,7 +170,6 @@ export default function HomeView() {
   const { data: vendors = [], isLoading: loadingVendors } = useVendors();
   const { data: serviceLogs = [] } = useServiceLogs();
   const { data: maintenanceSchedules = [] } = useMaintenanceSchedules();
-  const { data: alerts = [] } = useHomeAlerts();
 
   const isLoading = loadingInventory || loadingSubs || loadingVendors;
 
@@ -137,21 +188,19 @@ export default function HomeView() {
       }
     }, 0);
 
-  // Expiring warranties (within 30 days)
+  // Alerts calculation
   const expiringWarranties = inventory.filter(item => {
     if (!item.warranty_expires) return false;
     const days = Math.ceil((new Date(item.warranty_expires).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return days > 0 && days <= 30;
   });
 
-  // Upcoming bills (within 7 days)
   const upcomingBills = subscriptions.filter(sub => {
     if (!sub.next_billing_date || !sub.is_active) return false;
     const days = Math.ceil((new Date(sub.next_billing_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return days >= 0 && days <= 7;
   });
 
-  // Overdue maintenance
   const overdueMaintenance = maintenanceSchedules.filter(m => {
     if (!m.next_due) return false;
     return new Date(m.next_due) < new Date();
@@ -159,6 +208,7 @@ export default function HomeView() {
 
   const totalAlerts = expiringWarranties.length + upcomingBills.length + overdueMaintenance.length;
 
+  // Handlers
   const openAddModal = useCallback((type: 'inventory' | 'subscription') => {
     setAddModalType(type);
     setEditingInventoryItem(null);
@@ -198,12 +248,6 @@ export default function HomeView() {
     setEditingVendor(null);
   }, []);
 
-  const handleTabChange = useCallback((tab: TabType) => {
-    setActiveTab(tab);
-    setSearchQuery('');
-    Haptics.selectionAsync();
-  }, []);
-
   const handleCall = useCallback((phone: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Linking.openURL(`tel:${phone}`);
@@ -238,10 +282,7 @@ export default function HomeView() {
   }, []);
 
   const handleAddWikiEntry = useCallback((entry: { category: string; title: string; content: string }) => {
-    const newEntry = {
-      id: Date.now().toString(),
-      ...entry,
-    };
+    const newEntry = { id: Date.now().toString(), ...entry };
     setWikiEntries(prev => [...prev, newEntry]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
@@ -269,6 +310,11 @@ export default function HomeView() {
     setEditingWikiEntry(null);
   }, []);
 
+  const handleBack = useCallback(() => {
+    setActiveTab(null);
+    setSearchQuery('');
+  }, []);
+
   // Filter functions
   const filteredInventory = inventory.filter(item =>
     !searchQuery || 
@@ -286,47 +332,30 @@ export default function HomeView() {
     v.trade?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Render tab content
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'overview':
-        return renderOverview();
-      case 'inventory':
-        return renderInventory();
-      case 'subscriptions':
-        return renderSubscriptions();
-      case 'vendors':
-        return renderVendors();
-      case 'wiki':
-        return renderWiki();
-      case 'alerts':
-        return renderAlerts();
-      default:
-        return renderOverview();
-    }
-  };
+  // ============================================
+  // RENDER FUNCTIONS FOR EACH TAB
+  // ============================================
 
-  // Overview Tab
   const renderOverview = () => (
     <Animated.View entering={FadeIn.duration(300)}>
       {/* Quick Stats */}
       <View style={styles.statsGrid}>
-        <TouchableOpacity style={styles.statCard} onPress={() => handleTabChange('inventory')}>
+        <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('inventory')}>
           <Text style={styles.statIcon}>📦</Text>
           <Text style={styles.statValue}>{inventoryCount}</Text>
           <Text style={styles.statLabel}>Assets</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.statCard} onPress={() => handleTabChange('subscriptions')}>
+        <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('subscriptions')}>
           <Text style={styles.statIcon}>💳</Text>
           <Text style={styles.statValue}>${monthlySpend.toFixed(0)}</Text>
           <Text style={styles.statLabel}>Monthly Bills</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.statCard} onPress={() => handleTabChange('vendors')}>
+        <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('vendors')}>
           <Text style={styles.statIcon}>👷</Text>
           <Text style={styles.statValue}>{vendors.length}</Text>
           <Text style={styles.statLabel}>Vendors</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.statCard} onPress={() => handleTabChange('alerts')}>
+        <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('alerts')}>
           <Text style={styles.statIcon}>🔔</Text>
           <Text style={[styles.statValue, totalAlerts > 0 && styles.alertValue]}>{totalAlerts}</Text>
           <Text style={styles.statLabel}>Alerts</Text>
@@ -349,30 +378,7 @@ export default function HomeView() {
         </Animated.View>
       )}
 
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => openAddModal('inventory')}>
-            <Text style={styles.actionIcon}>📦</Text>
-            <Text style={styles.actionText}>Add Item</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => openAddModal('subscription')}>
-            <Text style={styles.actionIcon}>💳</Text>
-            <Text style={styles.actionText}>Track Bill</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleTabChange('vendors')}>
-            <Text style={styles.actionIcon}>🔍</Text>
-            <Text style={styles.actionText}>Find Vendor</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleTabChange('wiki')}>
-            <Text style={styles.actionIcon}>📖</Text>
-            <Text style={styles.actionText}>House Info</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Recent Activity */}
+      {/* Recent Items */}
       <View style={styles.recentSection}>
         <Text style={styles.sectionTitle}>Recent Items</Text>
         {inventory.slice(0, 3).map((item, i) => (
@@ -383,9 +389,7 @@ export default function HomeView() {
                 <Text style={styles.recentTitle} numberOfLines={1}>{item.name}</Text>
                 <Text style={styles.recentSub}>{item.brand || item.category}</Text>
               </View>
-              {item.warranty_expires && (
-                <Text style={styles.warrantyBadge}>🛡️</Text>
-              )}
+              {item.warranty_expires && <Text style={styles.warrantyBadge}>🛡️</Text>}
             </View>
           </Animated.View>
         ))}
@@ -396,10 +400,8 @@ export default function HomeView() {
     </Animated.View>
   );
 
-  // Inventory Tab
   const renderInventory = () => (
     <Animated.View entering={FadeIn.duration(300)}>
-      {/* Search & Add */}
       <View style={styles.searchRow}>
         <TextInput
           style={styles.searchInput}
@@ -413,7 +415,6 @@ export default function HomeView() {
         </TouchableOpacity>
       </View>
 
-      {/* Stats */}
       <View style={styles.miniStats}>
         <View style={styles.miniStat}>
           <Text style={styles.miniStatValue}>{inventory.length}</Text>
@@ -433,13 +434,9 @@ export default function HomeView() {
         </View>
       </View>
 
-      {/* Items List */}
       {filteredInventory.map((item, i) => (
         <Animated.View key={item.id} entering={FadeInUp.delay(i * 30).duration(300)}>
-          <TouchableOpacity 
-            style={styles.listCard}
-            onPress={() => openEditInventoryModal(item)}
-          >
+          <TouchableOpacity style={styles.listCard} onPress={() => openEditInventoryModal(item)}>
             <View style={styles.listIcon}>
               <Text style={styles.listEmoji}>{INVENTORY_ICONS[item.category] || '📦'}</Text>
             </View>
@@ -449,17 +446,12 @@ export default function HomeView() {
                 {item.brand || ''} {item.model_number ? `• ${item.model_number}` : ''}
               </Text>
               {item.warranty_expires && (
-                <Text style={[
-                  styles.warrantyText,
-                  isExpiringSoon(item.warranty_expires) && styles.warningText
-                ]}>
+                <Text style={[styles.warrantyText, isExpiringSoon(item.warranty_expires) && styles.warningText]}>
                   Warranty: {formatDate(item.warranty_expires)}
                 </Text>
               )}
             </View>
-            {item.purchase_price && (
-              <Text style={styles.priceText}>${item.purchase_price.toLocaleString()}</Text>
-            )}
+            {item.purchase_price && <Text style={styles.priceText}>${item.purchase_price.toLocaleString()}</Text>}
             <Text style={styles.editHint}>✏️</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -477,10 +469,8 @@ export default function HomeView() {
     </Animated.View>
   );
 
-  // Subscriptions Tab (Financial Firewall)
   const renderSubscriptions = () => (
     <Animated.View entering={FadeIn.duration(300)}>
-      {/* Search & Add */}
       <View style={styles.searchRow}>
         <TextInput
           style={styles.searchInput}
@@ -494,14 +484,12 @@ export default function HomeView() {
         </TouchableOpacity>
       </View>
 
-      {/* Monthly Burn Card */}
       <View style={styles.burnCard}>
         <Text style={styles.burnLabel}>Monthly Spend</Text>
         <Text style={styles.burnValue}>${monthlySpend.toFixed(2)}</Text>
         <Text style={styles.burnSub}>{subscriptionCount} active subscriptions</Text>
       </View>
 
-      {/* Subscriptions List */}
       {filteredSubscriptions.map((sub, i) => {
         const daysUntil = sub.next_billing_date 
           ? Math.ceil((new Date(sub.next_billing_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
@@ -541,21 +529,18 @@ export default function HomeView() {
     </Animated.View>
   );
 
-  // Vendors Tab (Vendor Memory)
   const renderVendors = () => (
     <Animated.View entering={FadeIn.duration(300)}>
-      {/* Search */}
       <View style={styles.searchRow}>
         <TextInput
           style={[styles.searchInput, { flex: 1 }]}
-          placeholder="Search vendors... (e.g., 'roof repair 2022')"
+          placeholder="Search vendors..."
           placeholderTextColor="#666"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
 
-      {/* Stats */}
       <View style={styles.miniStats}>
         <View style={styles.miniStat}>
           <Text style={styles.miniStatValue}>{vendors.length}</Text>
@@ -573,13 +558,9 @@ export default function HomeView() {
         </View>
       </View>
 
-      {/* Vendors List */}
       {filteredVendors.map((vendor, i) => (
         <Animated.View key={vendor.id} entering={FadeInUp.delay(i * 30).duration(300)}>
-          <TouchableOpacity 
-            style={styles.listCard}
-            onPress={() => openEditVendorModal(vendor)}
-          >
+          <TouchableOpacity style={styles.listCard} onPress={() => openEditVendorModal(vendor)}>
             <View style={styles.listIcon}>
               <Text style={styles.listEmoji}>{VENDOR_ICONS[vendor.trade?.toLowerCase()] || '👷'}</Text>
             </View>
@@ -619,7 +600,6 @@ export default function HomeView() {
     </Animated.View>
   );
 
-  // Wiki Tab (Household Manual)
   const renderWiki = () => (
     <Animated.View entering={FadeIn.duration(300)}>
       <Text style={styles.wikiIntro}>
@@ -628,10 +608,7 @@ export default function HomeView() {
 
       {wikiEntries.map((entry, i) => (
         <Animated.View key={entry.id} entering={FadeInUp.delay(i * 50).duration(300)}>
-          <TouchableOpacity 
-            style={styles.wikiCard}
-            onPress={() => openWikiEntryForEdit(entry)}
-          >
+          <TouchableOpacity style={styles.wikiCard} onPress={() => openWikiEntryForEdit(entry)}>
             <View style={styles.wikiHeader}>
               <Text style={styles.wikiIcon}>{WIKI_ICONS[entry.category] || '📝'}</Text>
               <Text style={styles.wikiTitle}>{entry.title}</Text>
@@ -652,7 +629,6 @@ export default function HomeView() {
     </Animated.View>
   );
 
-  // Alerts Tab (Notification Center)
   const renderAlerts = () => (
     <Animated.View entering={FadeIn.duration(300)}>
       {totalAlerts === 0 ? (
@@ -663,7 +639,6 @@ export default function HomeView() {
         </View>
       ) : (
         <>
-          {/* Expiring Warranties */}
           {expiringWarranties.length > 0 && (
             <View style={styles.alertSection}>
               <Text style={styles.alertSectionTitle}>🛡️ Warranties Expiring Soon</Text>
@@ -678,7 +653,6 @@ export default function HomeView() {
             </View>
           )}
 
-          {/* Upcoming Bills */}
           {upcomingBills.length > 0 && (
             <View style={styles.alertSection}>
               <Text style={styles.alertSectionTitle}>💳 Bills Due This Week</Text>
@@ -693,7 +667,6 @@ export default function HomeView() {
             </View>
           )}
 
-          {/* Overdue Maintenance */}
           {overdueMaintenance.length > 0 && (
             <View style={styles.alertSection}>
               <Text style={styles.alertSectionTitle}>🔧 Maintenance Overdue</Text>
@@ -701,7 +674,7 @@ export default function HomeView() {
                 <Animated.View key={m.id} entering={FadeInRight.delay(i * 50).duration(300)}>
                   <View style={styles.alertRow}>
                     <Text style={styles.alertName}>{m.task_name}</Text>
-                    <Text style={styles.alertOverdue}>Overdue</Text>
+                    <Text style={styles.alertDate}>{formatDate(m.next_due!)}</Text>
                   </View>
                 </Animated.View>
               ))}
@@ -712,625 +685,245 @@ export default function HomeView() {
     </Animated.View>
   );
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'overview': return renderOverview();
+      case 'inventory': return renderInventory();
+      case 'subscriptions': return renderSubscriptions();
+      case 'vendors': return renderVendors();
+      case 'wiki': return renderWiki();
+      case 'alerts': return renderAlerts();
+      default: return null;
+    }
+  };
+
+  // ============================================
+  // FULL SCREEN TAB VIEW
+  // ============================================
+
+  if (activeTab) {
+    const config = TILES.find(t => t.key === activeTab)!;
+    return (
+      <View style={styles.container}>
+        <Animated.View 
+          entering={SlideInRight.duration(250)}
+          exiting={SlideOutRight.duration(200)}
+          style={styles.fullScreen}
+        >
+          {/* Header */}
+          <View style={[styles.moduleHeader, { borderBottomColor: `${config.color}30` }]}>
+            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+              <Text style={styles.backText}>← Back</Text>
+            </TouchableOpacity>
+            <View style={styles.moduleTitleContainer}>
+              <Text style={styles.moduleHeaderIcon}>{config.icon}</Text>
+              <Text style={[styles.moduleTitle, { color: config.color }]}>{config.label}</Text>
+            </View>
+            <View style={styles.headerSpacer} />
+          </View>
+
+          {/* Content */}
+          <ScrollView 
+            style={styles.contentScroll}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.contentContainer}
+          >
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={ACCENT} />
+              </View>
+            ) : (
+              renderTabContent()
+            )}
+          </ScrollView>
+        </Animated.View>
+
+        {/* Modals */}
+        <AddInventoryModal visible={showAddModal && addModalType === 'inventory'} onClose={closeAddModal} editItem={editingInventoryItem} />
+        <AddSubscriptionModal visible={showAddModal && addModalType === 'subscription'} onClose={closeAddModal} editItem={editingSubscription} />
+        <AddVendorModal visible={showVendorModal} onClose={closeVendorModal} editItem={editingVendor} />
+        <AddWikiModal visible={showWikiModal} onClose={closeWikiModal} onSave={handleAddWikiEntry} onUpdate={handleUpdateWikiEntry} onDelete={handleDeleteWikiEntry} editEntry={editingWikiEntry} />
+      </View>
+    );
+  }
+
+  // ============================================
+  // DEFAULT TILE VIEW
+  // ============================================
+
   return (
     <View style={styles.container}>
-      {/* Header with Property Switcher */}
-      <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerEmoji}>
-            {activeProperty?.icon || '🏠'}
-          </Text>
+      {/* Header */}
+      <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerEmoji}>🏠</Text>
           <View>
             <Text style={styles.title}>Home</Text>
-            <TouchableOpacity 
-              style={styles.propertySwitcher}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setShowPropertyDropdown(!showPropertyDropdown);
-              }}
-            >
-              <Text style={styles.propertyName}>{activePropertyName}</Text>
-              <Text style={[styles.switchIcon, showPropertyDropdown && styles.switchIconOpen]}>
-                ▼
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.subtitle}>Your household command center</Text>
           </View>
         </View>
-        
-        {/* Property Dropdown */}
-        {showPropertyDropdown && (
-          <Animated.View 
-            entering={FadeIn.duration(200)} 
-            style={styles.propertyDropdown}
-          >
-            {properties.map((property) => (
-              <TouchableOpacity
-                key={property.id}
-                style={[
-                  styles.propertyOption,
-                  property.id === activePropertyId && styles.propertyOptionActive,
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setActivePropertyId(property.id);
-                  setShowPropertyDropdown(false);
-                }}
-              >
-                <Text style={styles.propertyOptionIcon}>{property.icon}</Text>
-                <Text style={[
-                  styles.propertyOptionText,
-                  property.id === activePropertyId && styles.propertyOptionTextActive,
-                ]}>
-                  {property.name}
-                </Text>
-                {property.id === activePropertyId && (
-                  <Text style={styles.propertyCheckmark}>✓</Text>
-                )}
-                {property.is_primary && (
-                  <View style={styles.primaryBadge}>
-                    <Text style={styles.primaryBadgeText}>Primary</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-            
-            {/* Add Property Option */}
-            <TouchableOpacity
-              style={styles.addPropertyOption}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowPropertyDropdown(false);
-                setShowAddPropertyModal(true);
-              }}
-            >
-              <Text style={styles.addPropertyIcon}>＋</Text>
-              <Text style={styles.addPropertyText}>Add Property</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
       </Animated.View>
 
-      {/* Tab Bar */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabBar}
-        contentContainerStyle={styles.tabBarContent}
-      >
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => handleTabChange(tab.key)}
-          >
-            <Text style={styles.tabIcon}>{tab.icon}</Text>
-            <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
-              {tab.label}
-            </Text>
-            {tab.key === 'alerts' && totalAlerts > 0 && (
-              <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>{totalAlerts}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Content */}
+      {/* Tile Grid */}
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.tilesContainer}
       >
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={ACCENT} />
-          </View>
-        ) : (
-          renderContent()
-        )}
+        <View style={styles.tilesGrid}>
+          {TILES.map((tile, index) => (
+            <Tile
+              key={tile.key}
+              config={tile}
+              index={index}
+              badge={tile.key === 'alerts' ? totalAlerts : undefined}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveTab(tile.key);
+              }}
+            />
+          ))}
+        </View>
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Modals */}
-      <AddInventoryModal 
-        visible={showAddModal && addModalType === 'inventory'} 
-        onClose={closeAddModal}
-        editItem={editingInventoryItem}
-      />
-      <AddSubscriptionModal 
-        visible={showAddModal && addModalType === 'subscription'} 
-        onClose={closeAddModal}
-        editItem={editingSubscription}
-      />
-      <AddVendorModal 
-        visible={showVendorModal} 
-        onClose={closeVendorModal}
-        editItem={editingVendor}
-      />
-      <AddWikiModal 
-        visible={showWikiModal} 
-        onClose={closeWikiModal}
-        onSave={handleAddWikiEntry}
-        onUpdate={handleUpdateWikiEntry}
-        onDelete={handleDeleteWikiEntry}
-        editEntry={editingWikiEntry}
-      />
-      
-      {/* Add Property Modal */}
-      <Modal
-        visible={showAddPropertyModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAddPropertyModal(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={() => setShowAddPropertyModal(false)}
-        >
-          <Pressable style={styles.addPropertyModal} onPress={e => e.stopPropagation()}>
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.addPropertyModalScroll}>
-              <Text style={styles.addPropertyModalTitle}>Add Property</Text>
-              
-              {/* Property Name Input */}
-              <Text style={styles.addPropertyLabel}>Property Name *</Text>
-              <TextInput
-                style={styles.addPropertyInput}
-                placeholder="e.g., Beach House, Office"
-                placeholderTextColor="#666"
-                value={newPropertyName}
-                onChangeText={setNewPropertyName}
-                autoFocus
-              />
-              
-              {/* Property Address Input */}
-              <Text style={styles.addPropertyLabel}>Address</Text>
-              <TextInput
-                style={[styles.addPropertyInput, styles.addressInput]}
-                placeholder="123 Main St, City, State ZIP"
-                placeholderTextColor="#666"
-                value={newPropertyAddress}
-                onChangeText={setNewPropertyAddress}
-                multiline
-                numberOfLines={2}
-              />
-              
-              {/* Property Icon Selector */}
-              <Text style={styles.addPropertyLabel}>Choose Icon</Text>
-              <View style={styles.iconGrid}>
-                {['🏠', '🏡', '🏢', '🏬', '🏭', '🛖', '⛺', '🏕️', '🏖️', '🏝️', '🚗', '🏗️'].map((icon) => (
-                  <TouchableOpacity
-                    key={icon}
-                    style={[
-                      styles.iconOption,
-                      newPropertyIcon === icon && styles.iconOptionSelected,
-                    ]}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setNewPropertyIcon(icon);
-                    }}
-                  >
-                    <Text style={styles.iconOptionText}>{icon}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            
-              {/* Property Type Selector */}
-              <Text style={styles.addPropertyLabel}>Property Type</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={styles.typeScrollView}
-                contentContainerStyle={styles.typeContainer}
-              >
-                {[
-                  { key: 'home', label: 'Home', icon: '🏠' },
-                  { key: 'vacation', label: 'Vacation', icon: '🏖️' },
-                  { key: 'rental', label: 'Rental', icon: '🔑' },
-                  { key: 'office', label: 'Office', icon: '🏢' },
-                  { key: 'storage', label: 'Storage', icon: '📦' },
-                  { key: 'vehicle', label: 'Vehicle', icon: '🚗' },
-                  { key: 'other', label: 'Other', icon: '📍' },
-                ].map((type) => (
-                  <TouchableOpacity
-                    key={type.key}
-                    style={[
-                      styles.typeOption,
-                      newPropertyType === type.key && styles.typeOptionSelected,
-                    ]}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setNewPropertyType(type.key as typeof newPropertyType);
-                    }}
-                  >
-                    <Text style={styles.typeOptionIcon}>{type.icon}</Text>
-                    <Text style={[
-                      styles.typeOptionLabel,
-                      newPropertyType === type.key && styles.typeOptionLabelSelected,
-                    ]}>
-                      {type.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            
-              {/* Buttons */}
-              <View style={styles.addPropertyButtons}>
-                <TouchableOpacity
-                  style={styles.addPropertyCancelBtn}
-                  onPress={() => {
-                    setShowAddPropertyModal(false);
-                    setNewPropertyName('');
-                    setNewPropertyAddress('');
-                    setNewPropertyIcon('🏠');
-                    setNewPropertyType('home');
-                  }}
-                >
-                  <Text style={styles.addPropertyCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.addPropertySaveBtn,
-                    (!newPropertyName.trim() || createPropertyMutation.isPending) && styles.addPropertySaveBtnDisabled,
-                  ]}
-                  disabled={!newPropertyName.trim() || createPropertyMutation.isPending}
-                  onPress={async () => {
-                    const result = await createPropertyMutation.mutateAsync({
-                      name: newPropertyName.trim(),
-                      address: newPropertyAddress.trim() || undefined,
-                      icon: newPropertyIcon,
-                      type: newPropertyType,
-                    });
-                    if (result) {
-                      setActivePropertyId(result.id);
-                    }
-                    setShowAddPropertyModal(false);
-                    setNewPropertyName('');
-                    setNewPropertyAddress('');
-                    setNewPropertyIcon('🏠');
-                    setNewPropertyType('home');
-                  }}
-                >
-                  <Text style={styles.addPropertySaveText}>
-                    {createPropertyMutation.isPending ? 'Adding...' : 'Add Property'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <AddInventoryModal visible={showAddModal && addModalType === 'inventory'} onClose={closeAddModal} editItem={editingInventoryItem} />
+      <AddSubscriptionModal visible={showAddModal && addModalType === 'subscription'} onClose={closeAddModal} editItem={editingSubscription} />
+      <AddVendorModal visible={showVendorModal} onClose={closeVendorModal} editItem={editingVendor} />
+      <AddWikiModal visible={showWikiModal} onClose={closeWikiModal} onSave={handleAddWikiEntry} onUpdate={handleUpdateWikiEntry} onDelete={handleDeleteWikiEntry} editEntry={editingWikiEntry} />
     </View>
   );
 }
 
-// Helper functions
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function isExpiringSoon(dateStr: string): boolean {
-  const days = Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  return days > 0 && days <= 30;
-}
-
-function formatTrade(trade: string): string {
-  return trade.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
+// ============================================
+// STYLES
+// ============================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: colors.background,
   },
+
+  // Header
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
   },
-  headerLeft: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: spacing.md,
   },
   headerEmoji: {
-    fontSize: 40,
+    fontSize: 32,
   },
   title: {
     fontSize: 28,
-    fontWeight: '300',
-    color: ACCENT,
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
-  propertySwitcher: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  subtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
     marginTop: 2,
   },
-  propertyName: {
-    fontSize: 14,
-    color: '#888',
-  },
-  switchIcon: {
-    fontSize: 10,
-    color: '#666',
-    marginLeft: 4,
-  },
-  switchIconOpen: {
-    transform: [{ rotate: '180deg' }],
-  },
-  
-  // Property Dropdown
-  propertyDropdown: {
-    position: 'absolute',
-    top: 110,
-    left: 24,
-    right: 24,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden',
-    zIndex: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  propertyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  propertyOptionActive: {
-    backgroundColor: `${ACCENT}15`,
-  },
-  propertyOptionIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  propertyOptionText: {
-    fontSize: 15,
-    color: '#ccc',
-    flex: 1,
-  },
-  propertyOptionTextActive: {
-    color: ACCENT,
-    fontWeight: '500',
-  },
-  propertyCheckmark: {
-    fontSize: 14,
-    color: ACCENT,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  primaryBadge: {
-    backgroundColor: `${ACCENT}20`,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-  primaryBadgeText: {
-    fontSize: 10,
-    color: ACCENT,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  addPropertyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-  },
-  addPropertyIcon: {
-    fontSize: 18,
-    color: ACCENT,
-    marginRight: 12,
-  },
-  addPropertyText: {
-    fontSize: 15,
-    color: ACCENT,
-    fontWeight: '500',
-  },
-  
-  // Add Property Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  addPropertyModal: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  addPropertyModalScroll: {
-    flexGrow: 0,
-  },
-  addressInput: {
-    minHeight: 60,
-    textAlignVertical: 'top',
-  },
-  addPropertyModalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#E0E0E0',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  addPropertyLabel: {
-    fontSize: 13,
-    color: '#888',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  iconGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  iconOption: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconOptionSelected: {
-    backgroundColor: `${ACCENT}25`,
-    borderWidth: 1,
-    borderColor: ACCENT,
-  },
-  iconOptionText: {
-    fontSize: 22,
-  },
-  addPropertyInput: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#E0E0E0',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  typeScrollView: {
-    marginHorizontal: -8,
-  },
-  typeContainer: {
-    paddingHorizontal: 8,
-    gap: 8,
-  },
-  typeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  typeOptionSelected: {
-    backgroundColor: `${ACCENT}20`,
-    borderColor: ACCENT,
-  },
-  typeOptionIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  typeOptionLabel: {
-    fontSize: 13,
-    color: '#888',
-  },
-  typeOptionLabelSelected: {
-    color: ACCENT,
-    fontWeight: '500',
-  },
-  addPropertyButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  addPropertyCancelBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center',
-  },
-  addPropertyCancelText: {
-    fontSize: 15,
-    color: '#888',
-    fontWeight: '500',
-  },
-  addPropertySaveBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: ACCENT,
-    alignItems: 'center',
-  },
-  addPropertySaveBtnDisabled: {
-    opacity: 0.4,
-  },
-  addPropertySaveText: {
-    fontSize: 15,
-    color: '#000',
-    fontWeight: '600',
-  },
-  
-  // Tab Bar
-  tabBar: {
-    maxHeight: 50,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  tabBarContent: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    marginRight: 8,
-  },
-  tabActive: {
-    backgroundColor: `${ACCENT}20`,
-  },
-  tabIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  tabLabel: {
-    fontSize: 13,
-    color: '#888',
-  },
-  tabLabelActive: {
-    color: ACCENT,
-    fontWeight: '500',
-  },
-  tabBadge: {
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 6,
-  },
-  tabBadgeText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: '600',
-  },
 
-  // Content
+  // Scroll & Grid
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 160, // Extra space for orbital control
+  tilesContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  tilesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: TILE_GAP,
+  },
+
+  // Tile
+  tile: {
+    width: TILE_SIZE,
+    height: TILE_SIZE * 0.85,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  tileIcon: {
+    fontSize: 36,
+    marginBottom: spacing.sm,
+  },
+  tileLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  tileBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tileBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Full Screen View
+  fullScreen: {
+    flex: 1,
+  },
+  moduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    padding: spacing.sm,
+    minWidth: 70,
+  },
+  backText: {
+    color: colors.home,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  moduleTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  moduleHeaderIcon: {
+    fontSize: 24,
+  },
+  moduleTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  headerSpacer: {
+    minWidth: 70,
+  },
+  contentScroll: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: spacing.lg,
+    paddingBottom: 160,
   },
   loadingContainer: {
     flex: 1,
@@ -1343,113 +936,88 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
   statCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: `${ACCENT}10`,
-    borderRadius: 16,
-    padding: 16,
+    width: (SCREEN_WIDTH - spacing.lg * 2 - 12) / 2,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     alignItems: 'center',
   },
   statIcon: {
     fontSize: 24,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   statValue: {
     fontSize: 24,
-    fontWeight: '300',
-    color: '#E0E0E0',
-  },
-  alertValue: {
-    color: '#ef4444',
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#888',
-    marginTop: 4,
+    color: colors.textSecondary,
+  },
+  alertValue: {
+    color: '#EF4444',
   },
 
   // Alert Card
   alertCard: {
-    backgroundColor: 'rgba(234, 179, 8, 0.12)',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(234, 179, 8, 0.2)',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: '#EF4444',
   },
   alertCardTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#eab308',
-    marginBottom: 8,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   alertItem: {
     fontSize: 13,
-    color: '#888',
-    marginTop: 4,
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
 
-  // Quick Actions
-  quickActions: {
-    marginBottom: 24,
-  },
+  // Section
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#E0E0E0',
-    marginBottom: 12,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: `${ACCENT}08`,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: `${ACCENT}15`,
-  },
-  actionIcon: {
-    fontSize: 24,
-    marginBottom: 6,
-  },
-  actionText: {
-    fontSize: 11,
-    color: '#888',
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
   },
 
   // Recent Section
   recentSection: {
-    marginTop: 8,
+    marginTop: spacing.md,
   },
   recentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${ACCENT}06`,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   recentIcon: {
-    fontSize: 20,
-    marginRight: 12,
+    fontSize: 24,
+    marginRight: spacing.md,
   },
   recentInfo: {
     flex: 1,
   },
   recentTitle: {
-    fontSize: 14,
-    color: '#E0E0E0',
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textPrimary,
   },
   recentSub: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   warrantyBadge: {
@@ -1459,37 +1027,36 @@ const styles = StyleSheet.create({
   // Search Row
   searchRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#E0E0E0',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.textPrimary,
+    fontSize: 15,
   },
   addBtn: {
     backgroundColor: ACCENT,
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
     justifyContent: 'center',
   },
   addBtnText: {
-    fontSize: 14,
+    color: '#fff',
     fontWeight: '600',
-    color: '#000',
   },
 
   // Mini Stats
   miniStats: {
     flexDirection: 'row',
-    backgroundColor: `${ACCENT}08`,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
   },
   miniStat: {
     flex: 1,
@@ -1497,12 +1064,12 @@ const styles = StyleSheet.create({
   },
   miniStatValue: {
     fontSize: 18,
-    fontWeight: '300',
-    color: '#E0E0E0',
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   miniStatLabel: {
     fontSize: 11,
-    color: '#666',
+    color: colors.textSecondary,
     marginTop: 2,
   },
 
@@ -1510,12 +1077,10 @@ const styles = StyleSheet.create({
   listCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${ACCENT}08`,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: `${ACCENT}10`,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   cancelledCard: {
     opacity: 0.5,
@@ -1523,11 +1088,11 @@ const styles = StyleSheet.create({
   listIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: `${ACCENT}15`,
-    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
+    marginRight: spacing.md,
   },
   listEmoji: {
     fontSize: 22,
@@ -1537,129 +1102,105 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     fontSize: 15,
-    color: '#E0E0E0',
-    fontWeight: '500',
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   listSub: {
     fontSize: 12,
-    color: '#888',
+    color: colors.textSecondary,
     marginTop: 2,
-  },
-  priceText: {
-    fontSize: 14,
-    color: '#888',
   },
   warrantyText: {
     fontSize: 11,
-    color: '#666',
-    marginTop: 4,
+    color: colors.textTertiary,
+    marginTop: 2,
   },
   warningText: {
-    color: '#eab308',
+    color: '#F59E0B',
+  },
+  priceText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginRight: spacing.sm,
   },
   editHint: {
     fontSize: 14,
-    marginLeft: 8,
     opacity: 0.5,
   },
 
   // Subscription specific
-  burnCard: {
-    backgroundColor: `${ACCENT}15`,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  burnLabel: {
-    fontSize: 12,
-    color: '#888',
-  },
-  burnValue: {
-    fontSize: 36,
-    fontWeight: '200',
-    color: ACCENT,
-    marginVertical: 4,
-  },
-  burnSub: {
-    fontSize: 12,
-    color: '#666',
-  },
-  costColumn: {
-    alignItems: 'flex-end',
-  },
-  costAmount: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: ACCENT,
-  },
-  costPeriod: {
-    fontSize: 11,
-    color: '#666',
-  },
   renewWarning: {
-    color: '#eab308',
+    color: '#F59E0B',
   },
   cancelledBadge: {
     fontSize: 10,
-    color: '#ef4444',
-    marginTop: 4,
+    color: '#EF4444',
+    marginTop: 2,
+  },
+  costColumn: {
+    alignItems: 'flex-end',
+    marginRight: spacing.sm,
+  },
+  costAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  costPeriod: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
 
   // Vendor specific
   vendorNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   starBadge: {
     fontSize: 12,
-    marginLeft: 6,
   },
   ratingText: {
-    fontSize: 12,
-    color: '#fbbf24',
-    marginTop: 4,
+    fontSize: 11,
+    color: '#F59E0B',
+    marginTop: 2,
   },
   callBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: spacing.sm,
+    marginRight: spacing.xs,
   },
   callBtnText: {
-    fontSize: 20,
+    fontSize: 18,
   },
 
   // Wiki
   wikiIntro: {
     fontSize: 14,
-    color: '#888',
-    marginBottom: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
   },
   wikiCard: {
-    backgroundColor: `${ACCENT}08`,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: `${ACCENT}10`,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   wikiHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   wikiIcon: {
     fontSize: 20,
-    marginRight: 10,
+    marginRight: spacing.sm,
   },
   wikiTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#E0E0E0',
     flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   wikiEditHint: {
     fontSize: 14,
@@ -1667,91 +1208,91 @@ const styles = StyleSheet.create({
   },
   wikiContent: {
     fontSize: 13,
-    color: '#888',
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   addWikiBtn: {
-    backgroundColor: `${ACCENT}15`,
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: ACCENT,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.md,
   },
   addWikiBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: ACCENT,
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
   },
 
-  // Alerts
+  // Alerts Tab
   alertSection: {
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   alertSectionTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#E0E0E0',
-    marginBottom: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   alertRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.xs,
   },
   alertName: {
     fontSize: 14,
-    color: '#E0E0E0',
+    color: colors.textPrimary,
     flex: 1,
   },
   alertDate: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   alertAmount: {
     fontSize: 14,
-    fontWeight: '500',
-    color: ACCENT,
-  },
-  alertOverdue: {
-    fontSize: 12,
-    color: '#ef4444',
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#F59E0B',
   },
 
   // Empty State
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: spacing.xl * 2,
   },
   emptyIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     fontSize: 18,
-    color: '#E0E0E0',
-    marginBottom: 8,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   emptyText: {
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    color: colors.textSecondary,
   },
   emptyAction: {
-    fontSize: 14,
+    fontSize: 15,
     color: ACCENT,
-    marginTop: 12,
+    fontWeight: '500',
+    marginTop: spacing.sm,
   },
 
+  // Tips
   tipText: {
     fontSize: 12,
-    color: '#555',
+    color: colors.textTertiary,
     textAlign: 'center',
-    marginTop: 20,
-    fontStyle: 'italic',
+    marginTop: spacing.lg,
+  },
+
+  // Bottom spacer
+  bottomSpacer: {
+    height: 160,
   },
 });
