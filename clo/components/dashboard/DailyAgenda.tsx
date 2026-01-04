@@ -519,6 +519,21 @@ export default function DailyAgenda() {
         <View style={styles.bottomPadding} />
       </ScrollView>
       
+      {/* Floating Plan Button */}
+      <Animated.View entering={FadeInUp.delay(500)} style={styles.floatingButtonContainer}>
+        <TouchableOpacity
+          style={styles.floatingButton}
+          onPress={() => {
+            haptics.selection();
+            setShowBacklog(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.floatingButtonIcon}>📋</Text>
+          <Text style={styles.floatingButtonText}>Plan</Text>
+        </TouchableOpacity>
+      </Animated.View>
+      
       {/* Backlog Modal */}
       <BacklogModal
         visible={showBacklog}

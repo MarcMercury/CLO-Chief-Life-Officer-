@@ -5,16 +5,18 @@
  * Interactive X/Y Graph: Energy (Y) vs Pleasure (X)
  * 
  * Tap anywhere on the graph to set your emotional state.
+ * Enhanced with 32+ emotions and precise touch tracking.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
   TouchableOpacity, 
   StyleSheet,
   Dimensions,
-  GestureResponderEvent,
+  PanResponder,
+  LayoutChangeEvent,
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -29,20 +31,47 @@ interface VibeCheckProps {
   initialPleasure?: number;
 }
 
-// Emotion label options based on quadrant
+// Expanded emotion label options based on quadrant and intensity
+// Each quadrant now has 8-10 emotions for much more nuance
 const EMOTION_OPTIONS: Record<string, string[]> = {
-  'high_positive': ['Excited', 'Elated', 'Happy', 'Thrilled', 'Energized'],
-  'high_negative': ['Anxious', 'Stressed', 'Angry', 'Frustrated', 'Overwhelmed'],
-  'low_positive': ['Calm', 'Relaxed', 'Content', 'Peaceful', 'Satisfied'],
-  'low_negative': ['Sad', 'Tired', 'Bored', 'Depressed', 'Lonely'],
+  // High Energy + Positive Pleasure
+  'high_positive': [
+    'Ecstatic', 'Thrilled', 'Excited', 'Elated', 'Euphoric',
+    'Joyful', 'Energized', 'Enthusiastic', 'Pumped', 'Alive',
+    'Vibrant', 'Radiant', 'Blissful', 'Exhilarated'
+  ],
+  // High Energy + Negative Pleasure  
+  'high_negative': [
+    'Anxious', 'Stressed', 'Angry', 'Frustrated', 'Overwhelmed',
+    'Panicked', 'Furious', 'Agitated', 'Irritated', 'Tense',
+    'Worried', 'Restless', 'Fearful', 'Frazzled'
+  ],
+  // Low Energy + Positive Pleasure
+  'low_positive': [
+    'Calm', 'Relaxed', 'Content', 'Peaceful', 'Satisfied',
+    'Serene', 'Tranquil', 'Cozy', 'Mellow', 'Grateful',
+    'At Ease', 'Comfortable', 'Soothed', 'Blissed Out'
+  ],
+  // Low Energy + Negative Pleasure
+  'low_negative': [
+    'Sad', 'Tired', 'Bored', 'Depressed', 'Lonely',
+    'Drained', 'Exhausted', 'Melancholic', 'Hopeless', 'Numb',
+    'Disconnected', 'Apathetic', 'Down', 'Gloomy'
+  ],
+  // Near center - Neutral/Mixed emotions
+  'neutral': [
+    'Neutral', 'Okay', 'Fine', 'Meh', 'So-so',
+    'Indifferent', 'Balanced', 'Stable'
+  ]
 };
 
-// Quadrant colors
+// Gradient colors for more precise positioning
 const QUADRANT_COLORS = {
-  'high_positive': '#10B981', // green
-  'high_negative': '#EF4444', // red
-  'low_positive': '#3B82F6', // blue
-  'low_negative': '#6B7280', // gray
+  'high_positive': '#10B981', // green - excited
+  'high_negative': '#EF4444', // red - stressed
+  'low_positive': '#3B82F6', // blue - calm
+  'low_negative': '#6B7280', // gray - sad
+  'neutral': '#A855F7', // purple - neutral
 };
 
 export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeCheckProps) {
@@ -51,26 +80,69 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
   const [selectedEnergy, setSelectedEnergy] = useState<number | null>(initialEnergy ?? null);
   const [selectedPleasure, setSelectedPleasure] = useState<number | null>(initialPleasure ?? null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const graphRef = useRef<View>(null);
+  const graphLayoutRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  const handleGraphTap = useCallback((event: GestureResponderEvent) => {
-    const { locationX, locationY } = event.nativeEvent;
+  // Handle layout to get accurate graph position
+  const handleGraphLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    graphLayoutRef.current = { x: 0, y: 0, width, height };
+  }, []);
+
+  // Convert touch position to emotion coordinates
+  const processTouch = useCallback((locationX: number, locationY: number) => {
+    const graphSize = graphLayoutRef.current?.width || GRAPH_SIZE;
+    const graphHeight = graphLayoutRef.current?.height || GRAPH_SIZE;
+    
+    // Clamp position within graph bounds
+    const clampedX = Math.max(0, Math.min(graphSize, locationX));
+    const clampedY = Math.max(0, Math.min(graphHeight, locationY));
     
     // Convert pixel position to -2 to 2 scale
-    // X: left = negative, right = positive (pleasure)
-    // Y: top = positive, bottom = negative (energy)
-    const pleasure = ((locationX / GRAPH_SIZE) * 4) - 2;
-    const energy = 2 - ((locationY / GRAPH_SIZE) * 4);
+    // X: left = negative (-2), right = positive (+2) (pleasure)
+    // Y: top = positive (+2), bottom = negative (-2) (energy)
+    const pleasure = ((clampedX / graphSize) * 4) - 2;
+    const energy = 2 - ((clampedY / graphHeight) * 4);
     
-    // Clamp values
+    // Clamp values to valid range
     const clampedPleasure = Math.max(-2, Math.min(2, pleasure));
     const clampedEnergy = Math.max(-2, Math.min(2, energy));
     
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    setPosition({ x: locationX, y: locationY });
-    setSelectedPleasure(clampedPleasure);
-    setSelectedEnergy(clampedEnergy);
+    return { 
+      x: clampedX, 
+      y: clampedY, 
+      energy: clampedEnergy, 
+      pleasure: clampedPleasure 
+    };
   }, []);
+
+  // PanResponder for accurate touch tracking (works with both taps and drags)
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        const result = processTouch(locationX, locationY);
+        
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setPosition({ x: result.x, y: result.y });
+        setSelectedPleasure(result.pleasure);
+        setSelectedEnergy(result.energy);
+      },
+      onPanResponderMove: (evt) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        const result = processTouch(locationX, locationY);
+        
+        setPosition({ x: result.x, y: result.y });
+        setSelectedPleasure(result.pleasure);
+        setSelectedEnergy(result.energy);
+      },
+      onPanResponderRelease: () => {
+        Haptics.selectionAsync();
+      },
+    })
+  ).current;
 
   const handleContinue = useCallback(() => {
     if (selectedEnergy !== null && selectedPleasure !== null) {
@@ -99,6 +171,12 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
 
   const getQuadrantKey = (): string => {
     if (selectedEnergy === null || selectedPleasure === null) return 'high_positive';
+    
+    // Check if near center (neutral zone) - within 0.5 of origin
+    if (Math.abs(selectedEnergy) < 0.5 && Math.abs(selectedPleasure) < 0.5) {
+      return 'neutral';
+    }
+    
     const energyKey = selectedEnergy >= 0 ? 'high' : 'low';
     const pleasureKey = selectedPleasure >= 0 ? 'positive' : 'negative';
     return `${energyKey}_${pleasureKey}`;
@@ -106,6 +184,15 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
 
   const getPointColor = (): string => {
     return QUADRANT_COLORS[getQuadrantKey() as keyof typeof QUADRANT_COLORS] || colors.self;
+  };
+
+  // Get intensity level for more specific emotion suggestions
+  const getIntensityLevel = (): 'low' | 'medium' | 'high' => {
+    if (selectedEnergy === null || selectedPleasure === null) return 'medium';
+    const distance = Math.sqrt(selectedEnergy ** 2 + selectedPleasure ** 2);
+    if (distance > 1.5) return 'high';
+    if (distance > 0.7) return 'medium';
+    return 'low';
   };
 
   const labelOptions = EMOTION_OPTIONS[getQuadrantKey()] || EMOTION_OPTIONS['high_positive'];
@@ -168,7 +255,7 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
   return (
     <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
       <Text style={styles.stepTitle}>How are you feeling?</Text>
-      <Text style={styles.stepSubtitle}>Tap anywhere on the graph</Text>
+      <Text style={styles.stepSubtitle}>Tap or drag anywhere on the graph</Text>
 
       <View style={styles.graphContainer}>
         {/* Y-axis labels */}
@@ -180,47 +267,73 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
           <Text style={styles.axisLabel}>Low{'\n'}Energy</Text>
         </View>
 
-        {/* Graph area */}
+        {/* Graph area with PanResponder for accurate touch tracking */}
         <View 
+          ref={graphRef}
           style={styles.graph}
-          onTouchEnd={handleGraphTap}
+          onLayout={handleGraphLayout}
+          {...panResponder.panHandlers}
         >
-          {/* Background quadrant colors */}
+          {/* Background quadrant colors with gradients */}
           <View style={styles.quadrantRow}>
-            <View style={[styles.quadrant, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+            <View style={[styles.quadrant, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
               <Text style={styles.quadrantEmoji}>😰</Text>
+              <Text style={styles.quadrantLabel}>Stressed</Text>
             </View>
-            <View style={[styles.quadrant, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+            <View style={[styles.quadrant, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
               <Text style={styles.quadrantEmoji}>🤩</Text>
+              <Text style={styles.quadrantLabel}>Excited</Text>
             </View>
           </View>
           <View style={styles.quadrantRow}>
-            <View style={[styles.quadrant, { backgroundColor: 'rgba(107, 114, 128, 0.1)' }]}>
+            <View style={[styles.quadrant, { backgroundColor: 'rgba(107, 114, 128, 0.15)' }]}>
               <Text style={styles.quadrantEmoji}>😔</Text>
+              <Text style={styles.quadrantLabel}>Down</Text>
             </View>
-            <View style={[styles.quadrant, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+            <View style={[styles.quadrant, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
               <Text style={styles.quadrantEmoji}>😌</Text>
+              <Text style={styles.quadrantLabel}>Calm</Text>
             </View>
+          </View>
+
+          {/* Center neutral zone indicator */}
+          <View style={styles.centerZone}>
+            <Text style={styles.centerEmoji}>😐</Text>
           </View>
 
           {/* Grid lines */}
           <View style={styles.gridLineH} />
           <View style={styles.gridLineV} />
 
-          {/* Selected point */}
+          {/* Selected point - positioned exactly where user touches */}
           {position && (
-            <View 
+            <Animated.View 
+              entering={FadeIn.duration(100)}
               style={[
                 styles.point,
                 { 
-                  left: position.x - 15,
-                  top: position.y - 15,
+                  left: position.x - 18,
+                  top: position.y - 18,
                   backgroundColor: getPointColor(),
                 }
               ]}
             >
               <View style={styles.pointInner} />
-            </View>
+            </Animated.View>
+          )}
+          
+          {/* Touch ripple effect */}
+          {position && (
+            <View 
+              style={[
+                styles.touchRipple,
+                { 
+                  left: position.x - 30,
+                  top: position.y - 30,
+                  borderColor: getPointColor(),
+                }
+              ]}
+            />
           )}
         </View>
       </View>
@@ -328,8 +441,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quadrantEmoji: {
-    fontSize: 24,
-    opacity: 0.3,
+    fontSize: 28,
+    opacity: 0.4,
+  },
+  quadrantLabel: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    opacity: 0.6,
+    marginTop: 2,
+  },
+  centerZone: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -20,
+    marginLeft: -20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerEmoji: {
+    fontSize: 18,
+    opacity: 0.5,
   },
   gridLineH: {
     position: 'absolute',
@@ -349,22 +485,33 @@ const styles = StyleSheet.create({
   },
   point: {
     position: 'absolute',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
   },
   pointInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#fff',
+  },
+  touchRipple: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    opacity: 0.3,
+  },
   },
   xAxis: {
     flexDirection: 'row',

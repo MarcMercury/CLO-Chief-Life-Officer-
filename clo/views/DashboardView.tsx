@@ -8,31 +8,46 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
+  Text as RNText,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   FadeIn,
+  FadeInUp,
+  FadeInDown,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
   Easing,
+  interpolate,
 } from 'react-native-reanimated';
 import { usePulse, useLastSyncedText } from '@/hooks/usePulse';
-import { getGreeting } from '@/services/pulseService';
-import { Text, Heading } from '@/components/ui';
+import {
+  getGreeting,
+  getMoodEmoji,
+  getWeatherEmoji,
+  formatTime,
+} from '@/services/pulseService';
+import { Text, Heading, Subheading, Label, Caption } from '@/components/ui';
 import { DailyAgenda, StickyNotes } from '@/components/dashboard';
-import { colors, spacing, borderRadius } from '@/constants/theme';
+import { colors, spacing, borderRadius, typography } from '@/constants/theme';
 import haptics from '@/lib/haptics';
-
-type ViewMode = 'agenda' | 'notes';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SYNC_BUTTON_SIZE = 60;
+
+// ============================================
+// VIEW MODE TOGGLE
+// ============================================
+
+type ViewMode = 'agenda' | 'widgets';
 
 // ============================================
 // MAIN COMPONENT
@@ -40,8 +55,8 @@ const SYNC_BUTTON_SIZE = 60;
 
 export default function DashboardView() {
   const router = useRouter();
-  const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('agenda');
+  const [refreshing, setRefreshing] = useState(false);
   
   const {
     isSyncing,
@@ -119,12 +134,7 @@ export default function DashboardView() {
 
   const handleOpenSettings = () => {
     haptics.selection();
-    router.push('/settings');
-  };
-
-  const handleToggleView = (mode: ViewMode) => {
-    haptics.selection();
-    setViewMode(mode);
+    router.push('/settings/integrations');
   };
   
   const handleRefresh = async () => {
@@ -166,6 +176,15 @@ export default function DashboardView() {
                 <Text style={styles.syncIcon}>{isSyncing ? '↻' : '◉'}</Text>
               </Animated.View>
             </TouchableOpacity>
+            
+            {/* Settings */}
+            <TouchableOpacity 
+              onPress={handleOpenSettings} 
+              style={styles.settingsButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
           </View>
         </View>
         
@@ -174,52 +193,286 @@ export default function DashboardView() {
           {isSyncing ? 'Syncing your world...' : `Updated ${lastSyncedText}`}
         </Text>
         
-        {/* View Toggle */}
+        {/* View Mode Toggle */}
         <View style={styles.viewToggle}>
           <TouchableOpacity
             style={[
               styles.toggleButton,
               viewMode === 'agenda' && styles.toggleButtonActive,
             ]}
-            onPress={() => handleToggleView('agenda')}
+            onPress={() => {
+              haptics.selection();
+              setViewMode('agenda');
+            }}
           >
-            <Text
-              style={[
-                styles.toggleText,
-                viewMode === 'agenda' && styles.toggleTextActive,
-              ]}
-            >
-              📅 Daily Flow
+            <Text style={[
+              styles.toggleText,
+              viewMode === 'agenda' && styles.toggleTextActive,
+            ]}>
+              📅 Agenda
             </Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              viewMode === 'notes' && styles.toggleButtonActive,
+              viewMode === 'widgets' && styles.toggleButtonActive,
             ]}
-            onPress={() => handleToggleView('notes')}
+            onPress={() => {
+              haptics.selection();
+              setViewMode('widgets');
+            }}
           >
-            <Text
-              style={[
-                styles.toggleText,
-                viewMode === 'notes' && styles.toggleTextActive,
-              ]}
-            >
-              📝 Sticky Notes
+            <Text style={[
+              styles.toggleText,
+              viewMode === 'widgets' && styles.toggleTextActive,
+            ]}>
+              📊 Widgets
             </Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
       
-      {/* Content based on view mode */}
+      {/* Content Area */}
       {viewMode === 'agenda' ? (
         <DailyAgenda />
       ) : (
-        <StickyNotes title="Sticky Notes" />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.textSecondary}
+            />
+          }
+        >
+          {/* Widget Grid */}
+          <View style={styles.widgetGrid}>
+            {/* Self / Bio Widget */}
+            <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+              <TouchableOpacity style={[styles.widget, styles.selfWidget]} activeOpacity={0.7}>
+                {bioMetrics ? (
+                  <>
+                    <View style={styles.widgetHeader}>
+                      <Text style={styles.widgetEmoji}>{getMoodEmoji(bioMetrics.mood)}</Text>
+                      <Text style={[styles.widgetTitle, { color: colors.self }]}>Self</Text>
+                    </View>
+                    <View style={styles.recoveryRing}>
+                      <View style={[
+                        styles.recoveryProgress,
+                        { 
+                          borderColor: colors.self,
+                          borderWidth: 3,
+                        }
+                      ]}>
+                        <Text style={styles.recoveryScore}>{bioMetrics.recoveryScore}</Text>
+                        <Text style={styles.recoveryLabel}>Recovery</Text>
+                      </View>
+                    </View>
+                    <View style={styles.widgetStats}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{bioMetrics.sleepHours}h</Text>
+                        <Text style={styles.statLabel}>Sleep</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{bioMetrics.heartRateResting}</Text>
+                        <Text style={styles.statLabel}>BPM</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{bioMetrics.stepsToday}</Text>
+                        <Text style={styles.statLabel}>Steps</Text>
+                      </View>
+                    </View>
+                  </>
+                ) : (
+                  <WidgetSkeleton accentColor={colors.self} error={errors.bioMetrics} />
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Home Widget */}
+            <Animated.View entering={FadeInUp.delay(200).duration(400)}>
+              <TouchableOpacity style={[styles.widget, styles.homeWidget]} activeOpacity={0.7}>
+                {homeStatus ? (
+                  <>
+                    <View style={styles.widgetHeader}>
+                      <Text style={styles.widgetEmoji}>{getWeatherEmoji(homeStatus.condition)}</Text>
+                      <Text style={[styles.widgetTitle, { color: colors.home }]}>Home</Text>
+                    </View>
+                    <View style={styles.homeMain}>
+                      <Text style={styles.temperature}>{homeStatus.temperature}°</Text>
+                      <Text style={styles.condition}>{homeStatus.condition}</Text>
+                    </View>
+                    <View style={styles.securityStatus}>
+                      <View style={[
+                        styles.securityDot,
+                        { backgroundColor: homeStatus.securityStatus === 'secure' ? '#22c55e' : '#ef4444' }
+                      ]} />
+                      <Text style={styles.securityText}>
+                        {homeStatus.securityStatus === 'secure' ? 'Home is Secure' : 'Alert Active'}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <WidgetSkeleton accentColor={colors.home} error={errors.homeStatus} />
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Relationships Widget */}
+            <Animated.View entering={FadeInUp.delay(300).duration(400)}>
+              <TouchableOpacity style={[styles.widget, styles.relWidget]} activeOpacity={0.7}>
+                {relationshipContext ? (
+                  <>
+                    <View style={styles.widgetHeader}>
+                      <Text style={styles.widgetEmoji}>❤️</Text>
+                      <Text style={[styles.widgetTitle, { color: colors.relationships }]}>Relationships</Text>
+                    </View>
+                    
+                    {relationshipContext.nextMeeting ? (
+                      <View style={styles.relItem}>
+                        <Text style={styles.relLabel}>Next Meeting</Text>
+                        <Text style={styles.relValue}>
+                          {relationshipContext.nextMeeting.name} at {formatTime(relationshipContext.nextMeeting.time)}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.relItem}>
+                        <Text style={styles.relLabel}>Calendar</Text>
+                        <Text style={styles.relValue}>No meetings today</Text>
+                      </View>
+                    )}
+
+                    {relationshipContext.overdueContact && (
+                      <View style={[styles.relItem, styles.relWarning]}>
+                        <Text style={styles.relLabel}>Overdue Contact</Text>
+                        <Text style={styles.relValue}>
+                          {relationshipContext.overdueContact.name} ({relationshipContext.overdueContact.daysSinceContact}d)
+                        </Text>
+                      </View>
+                    )}
+
+                    {relationshipContext.upcomingAnniversary && (
+                      <View style={styles.relItem}>
+                        <Text style={styles.relLabel}>Coming Up</Text>
+                        <Text style={styles.relValue}>
+                          🎂 {relationshipContext.upcomingAnniversary.name}'s anniversary in {relationshipContext.upcomingAnniversary.daysUntil}d
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <WidgetSkeleton accentColor={colors.relationships} error={errors.relationshipContext} />
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          {/* Sticky Notes Section */}
+          <Animated.View entering={FadeInUp.delay(400).duration(400)} style={styles.stickyNotesContainer}>
+            <StickyNotes title="Quick Notes" />
+          </Animated.View>
+
+          {/* Bottom hint */}
+          <Animated.View entering={FadeIn.delay(500).duration(400)} style={styles.hintContainer}>
+            <Text style={styles.hint}>Swipe the orb to explore circles</Text>
+          </Animated.View>
+        </ScrollView>
       )}
     </View>
   );
 }
+
+// ============================================
+// SKELETON LOADER COMPONENT
+// ============================================
+
+interface WidgetSkeletonProps {
+  accentColor: string;
+  error: string | null;
+}
+
+function WidgetSkeleton({ accentColor, error }: WidgetSkeletonProps) {
+  const shimmer = useSharedValue(0);
+
+  useEffect(() => {
+    shimmer.value = withRepeat(
+      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(shimmer.value, [0, 1], [0.3, 0.6]),
+  }));
+
+  if (error) {
+    return (
+      <View style={skeletonStyles.errorContainer}>
+        <Text style={skeletonStyles.errorIcon}>⚠️</Text>
+        <Text style={skeletonStyles.errorText}>Connection Lost</Text>
+        <Text style={skeletonStyles.errorHint}>Pull to retry</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={skeletonStyles.container}>
+      <Animated.View style={[skeletonStyles.line, skeletonStyles.lineShort, shimmerStyle]} />
+      <Animated.View style={[skeletonStyles.circle, shimmerStyle]} />
+      <Animated.View style={[skeletonStyles.line, shimmerStyle]} />
+      <Animated.View style={[skeletonStyles.line, skeletonStyles.lineMedium, shimmerStyle]} />
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  line: {
+    height: 12,
+    width: '80%',
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  lineShort: {
+    width: '40%',
+    alignSelf: 'flex-start',
+  },
+  lineMedium: {
+    width: '60%',
+  },
+  circle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  errorIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#ef4444',
+  },
+  errorHint: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+});
 
 // ============================================
 // MAIN STYLES
@@ -463,10 +716,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textPrimary,
   },
+  stickyNotesContainer: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+  },
   hintContainer: {
     alignItems: 'center',
     paddingTop: spacing.xl,
-    paddingBottom: 160, // Extra space for orbital control
+    paddingBottom: spacing.lg,
   },
   hint: {
     fontSize: 14,

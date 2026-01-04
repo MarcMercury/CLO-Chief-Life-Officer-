@@ -674,41 +674,110 @@ export async function upsertBudgetSettings(settings: {
 
 // ============================================
 // EMOTION MAPPING (Russell's Circumplex)
+// Enhanced with 32+ distinct emotions based on intensity and position
 // ============================================
 
 export function getEmotionFromCoordinates(energy: number, pleasure: number): string {
-  // High Energy + Positive = Excited, Alert, Elated
+  // Calculate distance from center for intensity
+  const intensity = Math.sqrt(energy ** 2 + pleasure ** 2);
+  
+  // Check for neutral zone (close to center)
+  if (intensity < 0.5) {
+    return 'Neutral';
+  }
+  
+  // Determine intensity level
+  const isHighIntensity = intensity > 1.4;
+  const isMediumIntensity = intensity > 0.8;
+  
+  // High Energy + Positive Pleasure (Quadrant 1 - top right)
   if (energy > 0 && pleasure > 0) {
-    if (energy > 1) return 'Excited';
+    if (isHighIntensity) {
+      if (energy > pleasure) return 'Ecstatic';
+      if (pleasure > energy) return 'Elated';
+      return 'Thrilled';
+    }
+    if (isMediumIntensity) {
+      if (energy > pleasure) return 'Energized';
+      if (pleasure > energy) return 'Joyful';
+      return 'Excited';
+    }
     return 'Happy';
   }
   
-  // High Energy + Negative = Anxious, Stressed, Tense
+  // High Energy + Negative Pleasure (Quadrant 2 - top left)
   if (energy > 0 && pleasure < 0) {
-    if (energy > 1) return 'Anxious';
-    return 'Stressed';
+    if (isHighIntensity) {
+      if (energy > Math.abs(pleasure)) return 'Panicked';
+      if (Math.abs(pleasure) > energy) return 'Furious';
+      return 'Overwhelmed';
+    }
+    if (isMediumIntensity) {
+      if (energy > Math.abs(pleasure)) return 'Anxious';
+      if (Math.abs(pleasure) > energy) return 'Angry';
+      return 'Stressed';
+    }
+    return 'Tense';
   }
   
-  // Low Energy + Positive = Calm, Relaxed, Content
+  // Low Energy + Positive Pleasure (Quadrant 3 - bottom right)
   if (energy < 0 && pleasure > 0) {
-    if (energy < -1) return 'Relaxed';
-    return 'Calm';
+    if (isHighIntensity) {
+      if (Math.abs(energy) > pleasure) return 'Serene';
+      if (pleasure > Math.abs(energy)) return 'Content';
+      return 'Tranquil';
+    }
+    if (isMediumIntensity) {
+      if (Math.abs(energy) > pleasure) return 'Relaxed';
+      if (pleasure > Math.abs(energy)) return 'Peaceful';
+      return 'Calm';
+    }
+    return 'At Ease';
   }
   
-  // Low Energy + Negative = Sad, Depressed, Tired
+  // Low Energy + Negative Pleasure (Quadrant 4 - bottom left)
   if (energy < 0 && pleasure < 0) {
-    if (energy < -1) return 'Depressed';
-    return 'Sad';
+    if (isHighIntensity) {
+      if (Math.abs(energy) > Math.abs(pleasure)) return 'Exhausted';
+      if (Math.abs(pleasure) > Math.abs(energy)) return 'Depressed';
+      return 'Hopeless';
+    }
+    if (isMediumIntensity) {
+      if (Math.abs(energy) > Math.abs(pleasure)) return 'Drained';
+      if (Math.abs(pleasure) > Math.abs(energy)) return 'Melancholic';
+      return 'Sad';
+    }
+    return 'Down';
   }
   
-  // Neutral
+  // Edge cases on axes
+  if (energy > 0 && pleasure === 0) {
+    return isHighIntensity ? 'Activated' : 'Alert';
+  }
+  if (energy < 0 && pleasure === 0) {
+    return isHighIntensity ? 'Fatigued' : 'Tired';
+  }
+  if (energy === 0 && pleasure > 0) {
+    return isHighIntensity ? 'Pleased' : 'Okay';
+  }
+  if (energy === 0 && pleasure < 0) {
+    return isHighIntensity ? 'Displeased' : 'Uneasy';
+  }
+  
   return 'Neutral';
 }
 
 export const EMOTION_LABELS = [
-  'Excited', 'Elated', 'Happy', 'Content',
-  'Calm', 'Relaxed', 'Peaceful', 'Tired',
-  'Sad', 'Depressed', 'Bored', 'Lonely',
-  'Anxious', 'Stressed', 'Angry', 'Frustrated',
-  'Overwhelmed', 'Hopeful', 'Grateful', 'Confident',
+  // High Energy + Positive
+  'Ecstatic', 'Elated', 'Thrilled', 'Excited', 'Energized', 'Joyful', 'Happy',
+  // High Energy + Negative  
+  'Panicked', 'Furious', 'Overwhelmed', 'Anxious', 'Angry', 'Stressed', 'Tense',
+  // Low Energy + Positive
+  'Serene', 'Content', 'Tranquil', 'Relaxed', 'Peaceful', 'Calm', 'At Ease',
+  // Low Energy + Negative
+  'Exhausted', 'Depressed', 'Hopeless', 'Drained', 'Melancholic', 'Sad', 'Down',
+  // Neutral / Edge
+  'Neutral', 'Activated', 'Alert', 'Fatigued', 'Tired', 'Pleased', 'Okay', 'Uneasy', 'Displeased',
+  // Additional emotions
+  'Grateful', 'Confident', 'Hopeful', 'Lonely', 'Bored', 'Frustrated',
 ];

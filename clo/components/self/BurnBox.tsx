@@ -13,7 +13,6 @@ import Animated, {
   withTiming,
   withSequence,
   withSpring,
-  runOnJS,
   Easing,
   FadeIn,
 } from 'react-native-reanimated';
@@ -33,7 +32,8 @@ export function BurnBox({ onBurn }: BurnBoxProps) {
   const scale = useSharedValue(1);
   const fireHeight = useSharedValue(0);
 
-  const resetState = useCallback(() => {
+  // Stable callback for completing the burn animation
+  const completeBurn = useCallback(() => {
     setText('');
     setIsBurning(false);
     setShowSuccess(true);
@@ -42,7 +42,12 @@ export function BurnBox({ onBurn }: BurnBoxProps) {
     setTimeout(() => {
       setShowSuccess(false);
     }, 2000);
-  }, []);
+    
+    // Call optional callback
+    if (onBurn) {
+      onBurn();
+    }
+  }, [onBurn]);
 
   const handleBurn = useCallback(() => {
     if (!text.trim() || isBurning) return;
@@ -60,15 +65,18 @@ export function BurnBox({ onBurn }: BurnBoxProps) {
       withTiming(0, { duration: 400 })
     );
     
-    opacity.value = withTiming(0, { duration: 1000 }, () => {
-      // Reset values
+    // Use setTimeout instead of animation callback to avoid runOnJS issues
+    setTimeout(() => {
+      // Reset animation values
       scale.value = 1;
       opacity.value = 1;
       fireHeight.value = 0;
-      runOnJS(resetState)();
-      runOnJS(onBurn || (() => {}))();
-    });
-  }, [text, isBurning, scale, opacity, fireHeight, resetState, onBurn]);
+      completeBurn();
+    }, 1000);
+    
+    // Start fade animation (without callback)
+    opacity.value = withTiming(0, { duration: 1000 });
+  }, [text, isBurning, scale, opacity, fireHeight, completeBurn]);
 
   const paperStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
