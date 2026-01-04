@@ -512,7 +512,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     opacity: 0.3,
   },
-  },
   xAxis: {
     flexDirection: 'row',
     justifyContent: 'space-between',

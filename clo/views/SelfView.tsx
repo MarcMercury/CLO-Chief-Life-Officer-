@@ -36,6 +36,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import * as Haptics from 'expo-haptics';
 import CreateItemModal from '../components/modals/CreateItemModal';
 import NoteDetailModal from '../components/modals/NoteDetailModal';
+import { EmotionalModule } from '../components/self';
 import { useItems, useUpdateItemStatus, useCreateItem, useDeleteItem, useUpdateItem } from '../hooks/useItems';
 import { ItemWithCircles } from '../types/database';
 import { colors, spacing, borderRadius } from '../constants/theme';
@@ -587,6 +588,20 @@ export default function SelfView() {
                   </View>
                 )}
               </View>
+            </Animated.View>
+            
+            {/* ============================================ */}
+            {/* SECTION 4: EMOTIONAL (Vibe Check, Burn Box, Gratitude) */}
+            {/* ============================================ */}
+            <Animated.View entering={FadeInUp.delay(400)} style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={styles.sectionIcon}>💜</Text>
+                  <Text style={styles.sectionTitle}>Emotional</Text>
+                </View>
+              </View>
+              
+              <EmotionalModule />
             </Animated.View>
             
             {/* Bottom padding */}
