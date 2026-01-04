@@ -16,6 +16,8 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp, FadeInRight } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -24,7 +26,8 @@ import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import { 
   useItems, 
   useCreateItem, 
-  useUpdateItemStatus, 
+  useUpdateItemStatus,
+  useUpdateItem,
   useDeleteItem 
 } from '@/hooks/useItems';
 import {
@@ -36,6 +39,12 @@ import {
 
 type SubTab = 'tasks' | 'lists' | 'finance';
 type ListBucket = 'shopping' | 'gifts' | 'groceries';
+
+interface EditableItem {
+  id: string;
+  title: string;
+  bucket?: ListBucket;
+}
 
 const LIST_BUCKETS: { key: ListBucket; label: string; icon: string }[] = [
   { key: 'shopping', label: 'Shopping', icon: '🛍️' },
@@ -53,10 +62,15 @@ export function PracticalModule() {
   const [showBudgetEdit, setShowBudgetEdit] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   
+  // Edit modal state
+  const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  
   // Data hooks
   const { data: allItems = [] } = useItems('SELF');
   const createItem = useCreateItem();
   const updateStatus = useUpdateItemStatus();
+  const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
   
   const { data: todaysSpending = [] } = useTodaysSpending();
@@ -123,6 +137,44 @@ export function PracticalModule() {
       status: item.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED',
     });
   }, [updateStatus]);
+
+  const handleEditItem = useCallback((item: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const bucket = (item.metadata as any)?.bucket;
+    setEditingItem({
+      id: item.id,
+      title: item.title,
+      bucket,
+    });
+    setEditTitle(item.title);
+  }, []);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!editingItem || !editTitle.trim()) return;
+    
+    await updateItem.mutateAsync({
+      itemId: editingItem.id,
+      updates: { title: editTitle.trim() },
+    });
+    
+    setEditingItem(null);
+    setEditTitle('');
+  }, [editingItem, editTitle, updateItem]);
+
+  const handleDeleteItem = useCallback(() => {
+    if (!editingItem) return;
+    Alert.alert('Delete', `Remove "${editingItem.title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Delete', 
+        style: 'destructive', 
+        onPress: () => {
+          deleteItem.mutate(editingItem.id);
+          setEditingItem(null);
+        }
+      },
+    ]);
+  }, [editingItem, deleteItem]);
 
   const handleDeleteTask = useCallback((item: any) => {
     Alert.alert('Delete', `Remove "${item.title}"?`, [
@@ -211,6 +263,7 @@ export function PracticalModule() {
         </View>
       ) : (
         <>
+          <Text style={styles.hintText}>Tap to complete • Hold to edit</Text>
           {pendingTasks.map((task, index) => (
             <Animated.View 
               key={task.id}
@@ -219,7 +272,7 @@ export function PracticalModule() {
               <TouchableOpacity
                 style={styles.taskItem}
                 onPress={() => handleToggleTask(task)}
-                onLongPress={() => handleDeleteTask(task)}
+                onLongPress={() => handleEditItem(task)}
               >
                 <View style={styles.checkbox} />
                 <Text style={styles.taskText}>{task.title}</Text>
@@ -297,33 +350,36 @@ export function PracticalModule() {
           <Text style={styles.emptyText}>No items in this list</Text>
         </View>
       ) : (
-        listItems.map((item, index) => (
-          <Animated.View 
-            key={item.id}
-            entering={FadeInRight.delay(index * 30).duration(200)}
-          >
-            <TouchableOpacity
-              style={styles.taskItem}
-              onPress={() => handleToggleTask(item)}
-              onLongPress={() => handleDeleteTask(item)}
+        <>
+          <Text style={styles.hintText}>Hold to edit</Text>
+          {listItems.map((item, index) => (
+            <Animated.View 
+              key={item.id}
+              entering={FadeInRight.delay(index * 30).duration(200)}
             >
-              <View style={[
-                styles.checkbox,
-                item.status === 'COMPLETED' && styles.checkboxDone
-              ]}>
-                {item.status === 'COMPLETED' && (
-                  <Text style={styles.checkmark}>✓</Text>
-                )}
-              </View>
-              <Text style={[
-                styles.taskText,
-                item.status === 'COMPLETED' && styles.taskTextDone
-              ]}>
-                {item.title}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        ))
+              <TouchableOpacity
+                style={styles.taskItem}
+                onPress={() => handleToggleTask(item)}
+                onLongPress={() => handleEditItem(item)}
+              >
+                <View style={[
+                  styles.checkbox,
+                  item.status === 'COMPLETED' && styles.checkboxDone
+                ]}>
+                  {item.status === 'COMPLETED' && (
+                    <Text style={styles.checkmark}>✓</Text>
+                  )}
+                </View>
+                <Text style={[
+                  styles.taskText,
+                  item.status === 'COMPLETED' && styles.taskTextDone
+                ]}>
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+        </>
       )}
     </Animated.View>
   );
@@ -432,6 +488,49 @@ export function PracticalModule() {
     </Animated.View>
   );
 
+  const renderEditModal = () => (
+    <Modal
+      visible={!!editingItem}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setEditingItem(null)}
+    >
+      <Pressable 
+        style={styles.modalOverlay} 
+        onPress={() => setEditingItem(null)}
+      >
+        <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.modalTitle}>Edit Item</Text>
+          
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Item text..."
+            placeholderTextColor={colors.textTertiary}
+            value={editTitle}
+            onChangeText={setEditTitle}
+            autoFocus
+          />
+          
+          <View style={styles.modalActions}>
+            <TouchableOpacity 
+              style={styles.deleteButton}
+              onPress={handleDeleteItem}
+            >
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.saveButton}
+              onPress={handleSaveEdit}
+            >
+              <Text style={styles.saveButtonText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       {renderTabs()}
@@ -441,6 +540,8 @@ export function PracticalModule() {
         {activeTab === 'lists' && renderLists()}
         {activeTab === 'finance' && renderFinance()}
       </View>
+      
+      {renderEditModal()}
     </View>
   );
 }
@@ -692,5 +793,67 @@ const styles = StyleSheet.create({
   transactionDesc: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  hintText: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  modalInput: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.sm,
+    padding: spacing.md,
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  deleteButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#EF4444',
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.self,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: '#000',
+    fontWeight: '600',
   },
 });

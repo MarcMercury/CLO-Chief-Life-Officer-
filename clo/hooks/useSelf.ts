@@ -134,6 +134,21 @@ export function useUpdateBookStatus() {
   });
 }
 
+export function useUpdateBook() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { 
+      id: string; 
+      updates: { title?: string; author?: string; notes?: string; rating?: number } 
+    }) => selfService.updateBook(id, updates),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+    },
+  });
+}
+
 export function useDeleteBook() {
   const queryClient = useQueryClient();
 

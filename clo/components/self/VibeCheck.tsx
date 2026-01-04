@@ -2,29 +2,32 @@
  * VibeCheck Component
  * 
  * Russell's Circumplex Model of Emotion
- * 2-axis grid: Energy (Y) vs Pleasure (X)
+ * Interactive X/Y Graph: Energy (Y) vs Pleasure (X)
+ * 
+ * Tap anywhere on the graph to set your emotional state.
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet,
+  Dimensions,
+  GestureResponderEvent,
+} from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius } from '@/constants/theme';
-import { getEmotionFromCoordinates, EMOTION_LABELS } from '@/services/selfService';
+import { getEmotionFromCoordinates } from '@/services/selfService';
+
+const GRAPH_SIZE = Dimensions.get('window').width - 80;
 
 interface VibeCheckProps {
   onSubmit: (energy: number, pleasure: number, label: string) => void;
   initialEnergy?: number;
   initialPleasure?: number;
 }
-
-// Grid quadrants with their characteristics
-const QUADRANTS = [
-  { energy: 2, pleasure: 2, emoji: '🤩', label: 'High Energy\nPositive', color: '#10B981' },
-  { energy: 2, pleasure: -2, emoji: '😰', label: 'High Energy\nNegative', color: '#EF4444' },
-  { energy: -2, pleasure: 2, emoji: '😌', label: 'Low Energy\nPositive', color: '#3B82F6' },
-  { energy: -2, pleasure: -2, emoji: '😔', label: 'Low Energy\nNegative', color: '#6B7280' },
-];
 
 // Emotion label options based on quadrant
 const EMOTION_OPTIONS: Record<string, string[]> = {
@@ -34,18 +37,47 @@ const EMOTION_OPTIONS: Record<string, string[]> = {
   'low_negative': ['Sad', 'Tired', 'Bored', 'Depressed', 'Lonely'],
 };
 
+// Quadrant colors
+const QUADRANT_COLORS = {
+  'high_positive': '#10B981', // green
+  'high_negative': '#EF4444', // red
+  'low_positive': '#3B82F6', // blue
+  'low_negative': '#6B7280', // gray
+};
+
 export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeCheckProps) {
   const [step, setStep] = useState<'grid' | 'label'>('grid');
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [selectedEnergy, setSelectedEnergy] = useState<number | null>(initialEnergy ?? null);
   const [selectedPleasure, setSelectedPleasure] = useState<number | null>(initialPleasure ?? null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
-  const handleQuadrantSelect = useCallback((energy: number, pleasure: number) => {
+  const handleGraphTap = useCallback((event: GestureResponderEvent) => {
+    const { locationX, locationY } = event.nativeEvent;
+    
+    // Convert pixel position to -2 to 2 scale
+    // X: left = negative, right = positive (pleasure)
+    // Y: top = positive, bottom = negative (energy)
+    const pleasure = ((locationX / GRAPH_SIZE) * 4) - 2;
+    const energy = 2 - ((locationY / GRAPH_SIZE) * 4);
+    
+    // Clamp values
+    const clampedPleasure = Math.max(-2, Math.min(2, pleasure));
+    const clampedEnergy = Math.max(-2, Math.min(2, energy));
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedEnergy(energy);
-    setSelectedPleasure(pleasure);
-    setStep('label');
+    
+    setPosition({ x: locationX, y: locationY });
+    setSelectedPleasure(clampedPleasure);
+    setSelectedEnergy(clampedEnergy);
   }, []);
+
+  const handleContinue = useCallback(() => {
+    if (selectedEnergy !== null && selectedPleasure !== null) {
+      Haptics.selectionAsync();
+      setStep('label');
+    }
+  }, [selectedEnergy, selectedPleasure]);
 
   const handleLabelSelect = useCallback((label: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -58,6 +90,7 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
       onSubmit(selectedEnergy, selectedPleasure, selectedLabel);
       // Reset
       setStep('grid');
+      setPosition(null);
       setSelectedEnergy(null);
       setSelectedPleasure(null);
       setSelectedLabel(null);
@@ -66,9 +99,13 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
 
   const getQuadrantKey = (): string => {
     if (selectedEnergy === null || selectedPleasure === null) return 'high_positive';
-    const energyKey = selectedEnergy > 0 ? 'high' : 'low';
-    const pleasureKey = selectedPleasure > 0 ? 'positive' : 'negative';
+    const energyKey = selectedEnergy >= 0 ? 'high' : 'low';
+    const pleasureKey = selectedPleasure >= 0 ? 'positive' : 'negative';
     return `${energyKey}_${pleasureKey}`;
+  };
+
+  const getPointColor = (): string => {
+    return QUADRANT_COLORS[getQuadrantKey() as keyof typeof QUADRANT_COLORS] || colors.self;
   };
 
   const labelOptions = EMOTION_OPTIONS[getQuadrantKey()] || EMOTION_OPTIONS['high_positive'];
@@ -78,7 +115,7 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
       <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
         <Text style={styles.stepTitle}>How would you describe it?</Text>
         <Text style={styles.stepSubtitle}>
-          {getEmotionFromCoordinates(selectedEnergy!, selectedPleasure!)} vibes detected
+          {getEmotionFromCoordinates(selectedEnergy!, selectedPleasure!)} vibes
         </Text>
 
         <View style={styles.labelsGrid}>
@@ -131,72 +168,99 @@ export function VibeCheck({ onSubmit, initialEnergy, initialPleasure }: VibeChec
   return (
     <Animated.View entering={FadeIn.duration(300)} style={styles.container}>
       <Text style={styles.stepTitle}>How are you feeling?</Text>
-      <Text style={styles.stepSubtitle}>Tap the quadrant that fits best</Text>
+      <Text style={styles.stepSubtitle}>Tap anywhere on the graph</Text>
 
-      {/* 2x2 Grid */}
-      <View style={styles.gridContainer}>
-        {/* Y-axis label */}
-        <View style={styles.yAxisLabel}>
-          <Text style={styles.axisText}>HIGH</Text>
-          <Text style={styles.axisText}>ENERGY</Text>
-          <Text style={styles.axisText}>LOW</Text>
+      <View style={styles.graphContainer}>
+        {/* Y-axis labels */}
+        <View style={styles.yAxis}>
+          <Text style={styles.axisLabel}>High{'\n'}Energy</Text>
+          <Text style={[styles.axisValue, styles.axisValueTop]}>+2</Text>
+          <Text style={styles.axisValue}>0</Text>
+          <Text style={[styles.axisValue, styles.axisValueBottom]}>-2</Text>
+          <Text style={styles.axisLabel}>Low{'\n'}Energy</Text>
         </View>
 
-        <View style={styles.grid}>
-          {/* Top row */}
-          <View style={styles.gridRow}>
-            <TouchableOpacity
-              style={[styles.quadrant, { backgroundColor: `${QUADRANTS[0].color}20` }]}
-              onPress={() => handleQuadrantSelect(2, 2)}
-            >
-              <Text style={styles.quadrantEmoji}>{QUADRANTS[0].emoji}</Text>
-              <Text style={[styles.quadrantLabel, { color: QUADRANTS[0].color }]}>
-                {QUADRANTS[0].label}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.quadrant, { backgroundColor: `${QUADRANTS[1].color}20` }]}
-              onPress={() => handleQuadrantSelect(2, -2)}
-            >
-              <Text style={styles.quadrantEmoji}>{QUADRANTS[1].emoji}</Text>
-              <Text style={[styles.quadrantLabel, { color: QUADRANTS[1].color }]}>
-                {QUADRANTS[1].label}
-              </Text>
-            </TouchableOpacity>
+        {/* Graph area */}
+        <View 
+          style={styles.graph}
+          onTouchEnd={handleGraphTap}
+        >
+          {/* Background quadrant colors */}
+          <View style={styles.quadrantRow}>
+            <View style={[styles.quadrant, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+              <Text style={styles.quadrantEmoji}>😰</Text>
+            </View>
+            <View style={[styles.quadrant, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+              <Text style={styles.quadrantEmoji}>🤩</Text>
+            </View>
+          </View>
+          <View style={styles.quadrantRow}>
+            <View style={[styles.quadrant, { backgroundColor: 'rgba(107, 114, 128, 0.1)' }]}>
+              <Text style={styles.quadrantEmoji}>😔</Text>
+            </View>
+            <View style={[styles.quadrant, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+              <Text style={styles.quadrantEmoji}>😌</Text>
+            </View>
           </View>
 
-          {/* Bottom row */}
-          <View style={styles.gridRow}>
-            <TouchableOpacity
-              style={[styles.quadrant, { backgroundColor: `${QUADRANTS[2].color}20` }]}
-              onPress={() => handleQuadrantSelect(-2, 2)}
-            >
-              <Text style={styles.quadrantEmoji}>{QUADRANTS[2].emoji}</Text>
-              <Text style={[styles.quadrantLabel, { color: QUADRANTS[2].color }]}>
-                {QUADRANTS[2].label}
-              </Text>
-            </TouchableOpacity>
+          {/* Grid lines */}
+          <View style={styles.gridLineH} />
+          <View style={styles.gridLineV} />
 
-            <TouchableOpacity
-              style={[styles.quadrant, { backgroundColor: `${QUADRANTS[3].color}20` }]}
-              onPress={() => handleQuadrantSelect(-2, -2)}
+          {/* Selected point */}
+          {position && (
+            <View 
+              style={[
+                styles.point,
+                { 
+                  left: position.x - 15,
+                  top: position.y - 15,
+                  backgroundColor: getPointColor(),
+                }
+              ]}
             >
-              <Text style={styles.quadrantEmoji}>{QUADRANTS[3].emoji}</Text>
-              <Text style={[styles.quadrantLabel, { color: QUADRANTS[3].color }]}>
-                {QUADRANTS[3].label}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <View style={styles.pointInner} />
+            </View>
+          )}
         </View>
       </View>
 
-      {/* X-axis label */}
-      <View style={styles.xAxisLabel}>
-        <Text style={styles.axisText}>POSITIVE ←</Text>
-        <Text style={styles.axisText}>MOOD</Text>
-        <Text style={styles.axisText}>→ NEGATIVE</Text>
+      {/* X-axis labels */}
+      <View style={styles.xAxis}>
+        <Text style={styles.axisLabel}>Negative</Text>
+        <View style={styles.xAxisValues}>
+          <Text style={styles.axisValue}>-2</Text>
+          <Text style={styles.axisValue}>0</Text>
+          <Text style={styles.axisValue}>+2</Text>
+        </View>
+        <Text style={styles.axisLabel}>Positive</Text>
       </View>
+      <Text style={styles.xAxisTitle}>← Pleasure →</Text>
+
+      {/* Current selection info */}
+      {position && (
+        <Animated.View entering={FadeIn.duration(200)} style={styles.selectionInfo}>
+          <Text style={[styles.selectionLabel, { color: getPointColor() }]}>
+            {getEmotionFromCoordinates(selectedEnergy!, selectedPleasure!)}
+          </Text>
+          <Text style={styles.selectionValues}>
+            Energy: {selectedEnergy?.toFixed(1)} • Pleasure: {selectedPleasure?.toFixed(1)}
+          </Text>
+        </Animated.View>
+      )}
+
+      <TouchableOpacity
+        style={[
+          styles.continueButton,
+          !position && styles.continueButtonDisabled,
+        ]}
+        onPress={handleContinue}
+        disabled={!position}
+      >
+        <Text style={styles.continueButtonText}>
+          {position ? 'Continue →' : 'Tap the graph to continue'}
+        </Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -216,56 +280,141 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
-  gridContainer: {
+  graphContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  yAxisLabel: {
-    width: 40,
+  yAxis: {
+    width: 50,
+    height: GRAPH_SIZE,
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 160,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  axisText: {
-    fontSize: 9,
-    color: colors.textTertiary,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-  },
-  grid: {
-    flex: 1,
-    gap: 4,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  quadrant: {
-    flex: 1,
-    height: 80,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.sm,
-  },
-  quadrantEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  quadrantLabel: {
+  axisLabel: {
     fontSize: 10,
-    fontWeight: '500',
+    color: colors.textTertiary,
     textAlign: 'center',
     lineHeight: 12,
   },
-  xAxisLabel: {
+  axisValue: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  axisValueTop: {
+    marginTop: 10,
+  },
+  axisValueBottom: {
+    marginBottom: 10,
+  },
+  graph: {
+    width: GRAPH_SIZE,
+    height: GRAPH_SIZE,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  quadrantRow: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  quadrant: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quadrantEmoji: {
+    fontSize: 24,
+    opacity: 0.3,
+  },
+  gridLineH: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '50%',
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  gridLineV: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '50%',
+    width: 1,
+    backgroundColor: colors.border,
+  },
+  point: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  pointInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#fff',
+  },
+  xAxis: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 40,
+    alignItems: 'center',
     marginTop: spacing.sm,
+    paddingHorizontal: 50,
+  },
+  xAxisValues: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flex: 1,
+    marginHorizontal: spacing.md,
+  },
+  xAxisTitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  selectionInfo: {
+    alignItems: 'center',
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+  },
+  selectionLabel: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  selectionValues: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  continueButton: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.self,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  continueButtonDisabled: {
+    backgroundColor: colors.surface,
+  },
+  continueButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
   },
   labelsGrid: {
     flexDirection: 'row',

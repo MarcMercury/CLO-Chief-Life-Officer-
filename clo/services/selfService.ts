@@ -299,6 +299,16 @@ export async function updateBookStatus(id: string, status: Book['status']): Prom
   if (error) throw new Error(error.message);
 }
 
+export async function updateBook(
+  id: string, 
+  updates: { title?: string; author?: string; notes?: string; rating?: number }
+): Promise<void> {
+  const { error } = await from('read_list')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteBook(id: string): Promise<void> {
   const { error } = await from('read_list').delete().eq('id', id);
   if (error) throw new Error(error.message);

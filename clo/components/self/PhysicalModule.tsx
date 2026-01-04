@@ -37,6 +37,7 @@ export function PhysicalModule() {
   const [newGoalName, setNewGoalName] = useState('');
   const [newGoalTarget, setNewGoalTarget] = useState('');
   const [newGoalUnit, setNewGoalUnit] = useState('');
+  const [newGoalType, setNewGoalType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [addAmount, setAddAmount] = useState('');
   const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
   
@@ -57,14 +58,15 @@ export function PhysicalModule() {
       goal_name: newGoalName.trim(),
       target_value: parseFloat(newGoalTarget),
       unit: newGoalUnit.trim(),
-      goal_type: 'daily',
+      goal_type: newGoalType,
     });
     
     setNewGoalName('');
     setNewGoalTarget('');
     setNewGoalUnit('');
+    setNewGoalType('daily');
     setShowAddGoal(false);
-  }, [newGoalName, newGoalTarget, newGoalUnit, createGoal]);
+  }, [newGoalName, newGoalTarget, newGoalUnit, newGoalType, createGoal]);
 
   const handleAddProgress = useCallback(async (goalId: string) => {
     const amount = parseFloat(addAmount);
@@ -185,7 +187,7 @@ export function PhysicalModule() {
         <Animated.View entering={FadeInUp.duration(200)} style={styles.addForm}>
           <TextInput
             style={styles.input}
-            placeholder="Goal name (e.g., Water)"
+            placeholder="Goal name (e.g., Drink water, Run, Meditate)"
             placeholderTextColor={colors.textTertiary}
             value={newGoalName}
             onChangeText={setNewGoalName}
@@ -201,12 +203,38 @@ export function PhysicalModule() {
             />
             <TextInput
               style={[styles.input, { flex: 1 }]}
-              placeholder="Unit (e.g., oz)"
+              placeholder="Unit (oz, miles)"
               placeholderTextColor={colors.textTertiary}
               value={newGoalUnit}
               onChangeText={setNewGoalUnit}
             />
           </View>
+          
+          {/* Timeframe Selection */}
+          <Text style={styles.timeframeLabel}>Goal resets:</Text>
+          <View style={styles.timeframePicker}>
+            {(['daily', 'weekly', 'monthly'] as const).map(type => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.timeframeOption,
+                  newGoalType === type && styles.timeframeOptionActive,
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setNewGoalType(type);
+                }}
+              >
+                <Text style={[
+                  styles.timeframeText,
+                  newGoalType === type && styles.timeframeTextActive,
+                ]}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          
           <TouchableOpacity style={styles.submitBtn} onPress={handleAddGoal}>
             <Text style={styles.submitBtnText}>Create Goal</Text>
           </TouchableOpacity>
@@ -221,9 +249,13 @@ export function PhysicalModule() {
         </View>
       ) : (
         <View style={styles.goalsGrid}>
+          <Text style={styles.goalsHint}>Tap to add progress • Hold to delete</Text>
           {goals.map((goal, index) => {
             const progress = calculateGoalProgress(goal);
             const isAddingToThis = activeGoalId === goal.id;
+            const timeframeLabel = goal.goal_type === 'daily' ? 'Daily' 
+              : goal.goal_type === 'weekly' ? 'Weekly' 
+              : 'Monthly';
             
             return (
               <Animated.View 
@@ -243,7 +275,10 @@ export function PhysicalModule() {
                       color={progress >= 100 ? '#10B981' : colors.self}
                     />
                     <View style={styles.goalInfo}>
-                      <Text style={styles.goalName}>{goal.goal_name}</Text>
+                      <View style={styles.goalHeader}>
+                        <Text style={styles.goalName}>{goal.goal_name}</Text>
+                        <Text style={styles.goalTimeframe}>{timeframeLabel}</Text>
+                      </View>
                       <Text style={styles.goalProgress}>
                         {formatGoalProgress(goal)}
                       </Text>
@@ -465,10 +500,26 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
+  goalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   goalName: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
+    flex: 1,
+  },
+  goalTimeframe: {
+    fontSize: 10,
+    color: colors.self,
+    fontWeight: '600',
+    backgroundColor: `${colors.self}20`,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    textTransform: 'uppercase',
   },
   goalProgress: {
     fontSize: 13,
@@ -503,5 +554,42 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     textAlign: 'center',
     marginTop: spacing.md,
+  },
+  goalsHint: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  timeframeLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  timeframePicker: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  timeframeOption: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  timeframeOptionActive: {
+    backgroundColor: `${colors.self}30`,
+    borderWidth: 1,
+    borderColor: colors.self,
+  },
+  timeframeText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  timeframeTextActive: {
+    color: colors.self,
+    fontWeight: '600',
   },
 });

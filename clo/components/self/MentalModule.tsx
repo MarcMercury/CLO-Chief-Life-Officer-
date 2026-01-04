@@ -2,9 +2,9 @@
  * MentalModule Component
  * 
  * 🧠 MENTAL (Growth)
- * - Read List: Book checklist
+ * - Read List: Book checklist with status summary
  * - Learn List: Skills with progress bars
- * - Focus Timer: 25-minute countdown
+ * - Time Box: Timed productivity sessions
  */
 
 import React, { useState, useCallback } from 'react';
@@ -16,16 +16,19 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp, FadeInRight } from 'react-native-reanimated';
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius } from '@/constants/theme';
-import { FocusTimer } from './FocusTimer';
+import { TimeBox } from './TimeBox';
 import { 
   useBooks, 
   useCreateBook, 
   useUpdateBookStatus,
+  useUpdateBook,
   useDeleteBook,
   useSkills,
   useCreateSkill,
@@ -33,13 +36,20 @@ import {
   useDeleteSkill,
 } from '@/hooks/useSelf';
 
-type SubTab = 'read' | 'learn' | 'focus';
+type SubTab = 'read' | 'learn' | 'timebox';
 
 const STATUS_ICONS: Record<string, string> = {
   to_read: '📚',
   reading: '📖',
   completed: '✅',
 };
+
+interface Book {
+  id: string;
+  title: string;
+  author?: string;
+  status: 'to_read' | 'reading' | 'completed';
+}
 
 export function MentalModule() {
   const [activeTab, setActiveTab] = useState<SubTab>('read');
@@ -49,16 +59,27 @@ export function MentalModule() {
   const [newSkillName, setNewSkillName] = useState('');
   const [showAddSkill, setShowAddSkill] = useState(false);
   
+  // Edit book modal state
+  const [editingBook, setEditingBook] = useState<Book | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editAuthor, setEditAuthor] = useState('');
+  
   // Data hooks
   const { data: books = [] } = useBooks();
   const createBook = useCreateBook();
   const updateBookStatus = useUpdateBookStatus();
+  const updateBook = useUpdateBook();
   const deleteBook = useDeleteBook();
   
   const { data: skills = [] } = useSkills();
   const createSkill = useCreateSkill();
   const updateSkillProgress = useUpdateSkillProgress();
   const deleteSkill = useDeleteSkill();
+
+  // Book status counts for summary
+  const toReadCount = books.filter(b => b.status === 'to_read').length;
+  const readingCount = books.filter(b => b.status === 'reading').length;
+  const completedCount = books.filter(b => b.status === 'completed').length;
 
   const handleAddBook = useCallback(async () => {
     if (!newBookTitle.trim()) return;
@@ -72,18 +93,46 @@ export function MentalModule() {
   }, [newBookTitle, newBookAuthor, createBook]);
 
   const handleBookStatusChange = useCallback(async (bookId: string, currentStatus: string) => {
+    Haptics.selectionAsync();
     const statusOrder = ['to_read', 'reading', 'completed'];
     const currentIndex = statusOrder.indexOf(currentStatus);
     const nextStatus = statusOrder[(currentIndex + 1) % statusOrder.length] as 'to_read' | 'reading' | 'completed';
     await updateBookStatus.mutateAsync({ id: bookId, status: nextStatus });
   }, [updateBookStatus]);
 
-  const handleDeleteBook = useCallback((bookId: string, title: string) => {
-    Alert.alert('Delete Book', `Remove "${title}" from your list?`, [
+  const handleEditBook = useCallback((book: Book) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setEditingBook(book);
+    setEditTitle(book.title);
+    setEditAuthor(book.author || '');
+  }, []);
+
+  const handleSaveBook = useCallback(async () => {
+    if (!editingBook || !editTitle.trim()) return;
+    await updateBook.mutateAsync({ 
+      id: editingBook.id, 
+      updates: { 
+        title: editTitle.trim(), 
+        author: editAuthor.trim() || undefined 
+      } 
+    });
+    setEditingBook(null);
+  }, [editingBook, editTitle, editAuthor, updateBook]);
+
+  const handleDeleteBook = useCallback(() => {
+    if (!editingBook) return;
+    Alert.alert('Delete Book', `Remove "${editingBook.title}" from your list?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteBook.mutate(bookId) },
+      { 
+        text: 'Delete', 
+        style: 'destructive', 
+        onPress: () => {
+          deleteBook.mutate(editingBook.id);
+          setEditingBook(null);
+        }
+      },
     ]);
-  }, [deleteBook]);
+  }, [editingBook, deleteBook]);
 
   const handleAddSkill = useCallback(async () => {
     if (!newSkillName.trim()) return;
@@ -112,7 +161,7 @@ export function MentalModule() {
       {[
         { key: 'read', label: 'Read List', icon: '📚' },
         { key: 'learn', label: 'Learn', icon: '🎓' },
-        { key: 'focus', label: 'Focus', icon: '🎯' },
+        { key: 'timebox', label: 'Time Box', icon: '⏱️' },
       ].map(tab => (
         <TouchableOpacity
           key={tab.key}
@@ -134,9 +183,12 @@ export function MentalModule() {
   const renderReadList = () => (
     <Animated.View entering={FadeIn.duration(200)}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>
-          {books.length} books • {books.filter(b => b.status === 'completed').length} completed
-        </Text>
+        <View>
+          <Text style={styles.sectionLabel}>
+            📚 {toReadCount} to read • 📖 {readingCount} reading • ✅ {completedCount} done
+          </Text>
+          <Text style={styles.sectionHint}>Tap to change status • Hold to edit</Text>
+        </View>
         <TouchableOpacity onPress={() => setShowAddBook(!showAddBook)}>
           <Text style={styles.addButton}>{showAddBook ? '✕' : '+'}</Text>
         </TouchableOpacity>
@@ -178,7 +230,7 @@ export function MentalModule() {
             <TouchableOpacity
               style={styles.listItem}
               onPress={() => handleBookStatusChange(book.id, book.status)}
-              onLongPress={() => handleDeleteBook(book.id, book.title)}
+              onLongPress={() => handleEditBook(book as Book)}
             >
               <Text style={styles.statusIcon}>{STATUS_ICONS[book.status]}</Text>
               <View style={styles.listItemContent}>
@@ -264,6 +316,78 @@ export function MentalModule() {
     </Animated.View>
   );
 
+  const renderEditBookModal = () => (
+    <Modal
+      visible={!!editingBook}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setEditingBook(null)}
+    >
+      <Pressable 
+        style={styles.modalOverlay} 
+        onPress={() => setEditingBook(null)}
+      >
+        <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.modalTitle}>Edit Book</Text>
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Book title..."
+            placeholderTextColor={colors.textTertiary}
+            value={editTitle}
+            onChangeText={setEditTitle}
+            autoFocus
+          />
+          
+          <TextInput
+            style={[styles.input, styles.inputSmall]}
+            placeholder="Author (optional)"
+            placeholderTextColor={colors.textTertiary}
+            value={editAuthor}
+            onChangeText={setEditAuthor}
+          />
+          
+          <View style={styles.statusPicker}>
+            <Text style={styles.statusPickerLabel}>Status:</Text>
+            {(['to_read', 'reading', 'completed'] as const).map(status => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.statusOption,
+                  editingBook?.status === status && styles.statusOptionActive,
+                ]}
+                onPress={() => {
+                  if (editingBook) {
+                    updateBookStatus.mutate({ id: editingBook.id, status });
+                    setEditingBook({ ...editingBook, status });
+                  }
+                }}
+              >
+                <Text style={styles.statusOptionText}>{STATUS_ICONS[status]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          <View style={styles.modalActions}>
+            <TouchableOpacity 
+              style={styles.deleteButton}
+              onPress={handleDeleteBook}
+            >
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.saveButton}
+              onPress={handleSaveBook}
+            >
+              <Text style={styles.saveButtonText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       {renderTabs()}
@@ -271,8 +395,10 @@ export function MentalModule() {
       <View style={styles.content}>
         {activeTab === 'read' && renderReadList()}
         {activeTab === 'learn' && renderLearnList()}
-        {activeTab === 'focus' && <FocusTimer />}
+        {activeTab === 'timebox' && <TimeBox />}
       </View>
+      
+      {renderEditBookModal()}
     </View>
   );
 }
@@ -429,5 +555,82 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     width: 40,
     textAlign: 'right',
+  },
+  sectionHint: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  statusPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  statusPickerLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginRight: spacing.sm,
+  },
+  statusOption: {
+    padding: spacing.sm,
+    marginRight: spacing.xs,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.background,
+  },
+  statusOptionActive: {
+    backgroundColor: `${colors.self}30`,
+    borderWidth: 1,
+    borderColor: colors.self,
+  },
+  statusOptionText: {
+    fontSize: 18,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  deleteButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#EF4444',
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.self,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: '#000',
+    fontWeight: '600',
   },
 });

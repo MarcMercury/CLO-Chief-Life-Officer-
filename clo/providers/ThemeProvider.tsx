@@ -137,46 +137,46 @@ const lightColors: ThemeColors = {
   glass: 'rgba(0, 0, 0, 0.02)',
 };
 
-// CLO Theme - Warm, soft colors from app icon (soft purples, warm creams, gentle feel)
+// CLO Theme - Warm, soft colors inspired by app icon (lavender, cream, blush tones)
 const cloColors: ThemeColors = {
-  // Warm dark background with slight purple tint (like the app icon background)
-  background: '#1A1520',  // Deep warm purple-black
-  surface: '#252030',     // Slightly elevated warm purple
-  surfaceElevated: '#2D2838', // More elevated
+  // Softer, warmer backgrounds with visible purple/blush undertones
+  background: '#1E1826',  // Soft plum-charcoal (noticeably warmer than dark)
+  surface: '#2A2233',     // Dusty mauve surface
+  surfaceElevated: '#342B40', // Lifted lavender-gray
   
-  // Warm cream/off-white text (inspired by icon highlights)
-  textPrimary: '#F5F0E8',   // Warm cream
-  textSecondary: '#BDB5A8', // Muted warm
-  textTertiary: '#7A7268',  // Soft brown-gray
-  textMuted: '#524D46',     // Deep muted
+  // Warm cream/champagne text (softer, less stark)
+  textPrimary: '#FAF6F0',   // Champagne cream
+  textSecondary: '#D4CCC0', // Soft taupe
+  textTertiary: '#9A9088',  // Warm gray
+  textMuted: '#6A635C',     // Muted brown
   
-  // Soft borders with warmth
-  border: 'rgba(245, 240, 232, 0.06)',
-  borderLight: 'rgba(245, 240, 232, 0.10)',
-  borderFocus: 'rgba(245, 240, 232, 0.18)',
+  // Soft blush-tinted borders
+  border: 'rgba(250, 246, 240, 0.08)',
+  borderLight: 'rgba(250, 246, 240, 0.12)',
+  borderFocus: 'rgba(250, 246, 240, 0.20)',
   
-  // Circle accents - warmer, softer versions
-  self: '#A78BFA',          // Soft lavender (app icon purple)
-  relationships: '#F0A090', // Soft coral/peach
-  home: '#9DC4A0',          // Soft sage
-  dashboard: '#C4A0E8',     // Soft violet
+  // Circle accents - softer, more pastel
+  self: '#B8A4F8',          // Soft lilac
+  relationships: '#F5B8A8', // Blush peach
+  home: '#A8D4AC',          // Soft mint sage
+  dashboard: '#D4B8F0',     // Soft wisteria
   
-  // Circle backgrounds - even softer
-  selfBg: 'rgba(167, 139, 250, 0.12)',
-  relationshipsBg: 'rgba(240, 160, 144, 0.12)',
-  homeBg: 'rgba(157, 196, 160, 0.12)',
-  dashboardBg: 'rgba(196, 160, 232, 0.12)',
+  // Circle backgrounds - gentle glow
+  selfBg: 'rgba(184, 164, 248, 0.15)',
+  relationshipsBg: 'rgba(245, 184, 168, 0.15)',
+  homeBg: 'rgba(168, 212, 172, 0.15)',
+  dashboardBg: 'rgba(212, 184, 240, 0.15)',
   
-  // Softer status colors
-  success: '#6EE7A0',
-  warning: '#FCD34D',
-  error: '#F87171',
-  info: '#93C5FD',
+  // Softer, pastel status colors
+  success: '#7EEAB0',
+  warning: '#FFDF80',
+  error: '#FF9B9B',
+  info: '#A8D4FF',
   
-  // Warm overlays
-  overlay: 'rgba(26, 21, 32, 0.7)',
-  overlayLight: 'rgba(26, 21, 32, 0.4)',
-  glass: 'rgba(245, 240, 232, 0.03)',
+  // Warm blush overlays
+  overlay: 'rgba(30, 24, 38, 0.75)',
+  overlayLight: 'rgba(30, 24, 38, 0.45)',
+  glass: 'rgba(250, 246, 240, 0.04)',
 };
 
 // ============================================

@@ -69,17 +69,17 @@ export const typography = {
     semibold: 'Outfit_600SemiBold',
   },
   
-  // Font sizes
+  // Font sizes (increased ~15% for better readability)
   fontSize: {
-    xs: 11,
-    sm: 13,
-    base: 15,
-    lg: 17,
-    xl: 20,
-    '2xl': 24,
-    '3xl': 30,
-    '4xl': 36,
-    '5xl': 48,
+    xs: 13,
+    sm: 15,
+    base: 17,
+    lg: 19,
+    xl: 23,
+    '2xl': 28,
+    '3xl': 34,
+    '4xl': 42,
+    '5xl': 56,
   },
   
   // Line heights

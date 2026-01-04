@@ -22,6 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius } from '../constants/theme';
+import { useDailyIntentions } from '@/hooks/useSelf';
 
 // Import all Self modules
 import {
@@ -108,9 +109,10 @@ interface TileProps {
   config: TileConfig;
   index: number;
   onPress: () => void;
+  checkmarks?: number; // For Daily 3: 0-3 checkmarks
 }
 
-function Tile({ config, index, onPress }: TileProps) {
+function Tile({ config, index, onPress, checkmarks }: TileProps) {
   return (
     <Animated.View 
       entering={FadeInUp.delay(50 + index * 50).duration(300)}
@@ -126,6 +128,23 @@ function Tile({ config, index, onPress }: TileProps) {
         <Text style={styles.tileIcon}>{config.icon}</Text>
         <Text style={[styles.tileLabel, { color: config.color }]}>{config.label}</Text>
         <Text style={styles.tileDescription}>{config.description}</Text>
+        
+        {/* Checkmarks for Daily 3 */}
+        {checkmarks !== undefined && (
+          <View style={styles.checkmarksRow}>
+            {[0, 1, 2].map(i => (
+              <Text 
+                key={i} 
+                style={[
+                  styles.checkmark,
+                  { opacity: i < checkmarks ? 1 : 0.3 }
+                ]}
+              >
+                {i < checkmarks ? '✓' : '○'}
+              </Text>
+            ))}
+          </View>
+        )}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -184,6 +203,10 @@ function ModuleScreen({ config, onBack, children }: ModuleScreenProps) {
 
 export default function SelfView() {
   const [activeModule, setActiveModule] = useState<ModuleKey>(null);
+  
+  // Get daily intentions to show checkmarks on tile
+  const { data: intentions = [] } = useDailyIntentions();
+  const completedCount = intentions.filter(i => i.is_completed).length;
   
   const handleOpenModule = useCallback((key: ModuleKey) => {
     setActiveModule(key);
@@ -251,6 +274,7 @@ export default function SelfView() {
               config={tile}
               index={index}
               onPress={() => handleOpenModule(tile.key)}
+              checkmarks={tile.key === 'daily3' ? completedCount : undefined}
             />
           ))}
         </View>
@@ -338,6 +362,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textTertiary,
     textAlign: 'center',
+  },
+  checkmarksRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: spacing.sm,
+  },
+  checkmark: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: '600',
   },
 
   // Module Screen (Full Screen View)

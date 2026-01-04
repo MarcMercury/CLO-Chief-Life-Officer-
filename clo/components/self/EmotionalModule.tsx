@@ -33,6 +33,7 @@ type SubTab = 'vibe' | 'burn' | 'gratitude';
 export function EmotionalModule() {
   const [activeTab, setActiveTab] = useState<SubTab>('vibe');
   const [newGratitude, setNewGratitude] = useState('');
+  const [showVibeCheck, setShowVibeCheck] = useState(false);
   
   // Data hooks
   const { data: todaysMood } = useTodaysMood();
@@ -50,6 +51,7 @@ export function EmotionalModule() {
       pleasureLevel: pleasure,
       emotionLabel: label,
     });
+    setShowVibeCheck(false);
   }, [logMood]);
 
   const handleAddGratitude = useCallback(async () => {
@@ -88,7 +90,7 @@ export function EmotionalModule() {
 
   const renderVibeCheck = () => (
     <Animated.View entering={FadeIn.duration(200)}>
-      {todaysMood ? (
+      {todaysMood && !showVibeCheck ? (
         <View style={styles.moodLogged}>
           <Text style={styles.moodLoggedIcon}>✅</Text>
           <Text style={styles.moodLoggedText}>
@@ -103,8 +105,8 @@ export function EmotionalModule() {
           <TouchableOpacity 
             style={styles.logAgainBtn}
             onPress={() => {
-              // Clear and allow re-log
               Haptics.selectionAsync();
+              setShowVibeCheck(true);
             }}
           >
             <Text style={styles.logAgainText}>Log again</Text>
