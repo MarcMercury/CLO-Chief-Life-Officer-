@@ -556,7 +556,8 @@ export async function getIdeas(): Promise<Idea[]> {
 export async function createIdea(
   ideaTitle: string, 
   ideaContent?: string,
-  category?: string
+  category?: string,
+  color?: string
 ): Promise<Idea | null> {
   const { data: { user } } = await auth().getUser();
   if (!user) throw new Error('Not authenticated');
@@ -568,7 +569,7 @@ export async function createIdea(
       idea_title: ideaTitle,
       idea_content: ideaContent,
       category,
-      color: 'yellow',
+      color: color || '#FBBF24', // Default yellow
       is_pinned: false,
     })
     .select()

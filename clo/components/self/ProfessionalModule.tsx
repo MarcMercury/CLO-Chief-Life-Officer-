@@ -136,11 +136,13 @@ export function ProfessionalModule() {
     
     await createIdea.mutateAsync({
       ideaTitle: newIdea.trim(),
+      color: selectedColor,
     });
     
     setNewIdea('');
+    setSelectedColor(IDEA_COLORS[0]);
     setShowIdeaInput(false);
-  }, [newIdea, createIdea]);
+  }, [newIdea, selectedColor, createIdea]);
 
   const handleDeleteIdea = useCallback((idea: any) => {
     Alert.alert('Delete Idea', 'Remove this idea?', [

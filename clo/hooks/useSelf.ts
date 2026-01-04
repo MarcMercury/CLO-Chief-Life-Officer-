@@ -345,11 +345,12 @@ export function useCreateIdea() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ ideaTitle, ideaContent, category }: { 
+    mutationFn: ({ ideaTitle, ideaContent, category, color }: { 
       ideaTitle: string; 
       ideaContent?: string;
       category?: string;
-    }) => selfService.createIdea(ideaTitle, ideaContent, category),
+      color?: string;
+    }) => selfService.createIdea(ideaTitle, ideaContent, category, color),
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ['ideas'] });

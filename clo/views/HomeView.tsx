@@ -90,7 +90,7 @@ const WIKI_ICONS: Record<string, string> = {
 };
 
 // Mock wiki data
-const MOCK_WIKI_ENTRIES = [
+const MOCK_WIKI_ENTRIES: WikiEntry[] = [
   { id: '1', category: 'wifi_network', title: 'Home WiFi', content: 'Network: HomeNet_5G\nPassword: ********' },
   { id: '2', category: 'trash_schedule', title: 'Trash Pickup', content: 'Tuesday: Recycling\nFriday: Regular trash' },
   { id: '3', category: 'gate_codes', title: 'Gate Code', content: 'Main gate: 1234#\nGuest code: 5678#' },
@@ -157,7 +157,7 @@ export default function HomeView() {
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showWikiModal, setShowWikiModal] = useState(false);
   const [editingWikiEntry, setEditingWikiEntry] = useState<WikiEntry | null>(null);
-  const [wikiEntries, setWikiEntries] = useState(MOCK_WIKI_ENTRIES);
+  const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>(MOCK_WIKI_ENTRIES);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Edit mode state
@@ -283,7 +283,7 @@ export default function HomeView() {
   }, []);
 
   const handleAddWikiEntry = useCallback((entry: { category: string; title: string; content: string }) => {
-    const newEntry = { id: Date.now().toString(), ...entry };
+    const newEntry: WikiEntry = { id: Date.now().toString(), ...entry };
     setWikiEntries(prev => [...prev, newEntry]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
@@ -1069,6 +1069,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+
+  // Burn Card (Monthly Spend Summary)
+  burnCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  burnLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  burnValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.home,
+  },
+  burnSub: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 4,
   },
 
   // List Card

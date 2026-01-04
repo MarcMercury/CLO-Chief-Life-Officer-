@@ -25,9 +25,11 @@ import Animated, {
 import { usePulse, useLastSyncedText } from '@/hooks/usePulse';
 import { getGreeting } from '@/services/pulseService';
 import { Text, Heading } from '@/components/ui';
-import { DailyAgenda } from '@/components/dashboard';
+import { DailyAgenda, StickyNotes } from '@/components/dashboard';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
+
+type ViewMode = 'agenda' | 'notes';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SYNC_BUTTON_SIZE = 60;
@@ -39,6 +41,7 @@ const SYNC_BUTTON_SIZE = 60;
 export default function DashboardView() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('agenda');
   
   const {
     isSyncing,
@@ -118,6 +121,11 @@ export default function DashboardView() {
     haptics.selection();
     router.push('/settings');
   };
+
+  const handleToggleView = (mode: ViewMode) => {
+    haptics.selection();
+    setViewMode(mode);
+  };
   
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -166,10 +174,49 @@ export default function DashboardView() {
           {isSyncing ? 'Syncing your world...' : `Updated ${lastSyncedText}`}
         </Text>
         
+        {/* View Toggle */}
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'agenda' && styles.toggleButtonActive,
+            ]}
+            onPress={() => handleToggleView('agenda')}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                viewMode === 'agenda' && styles.toggleTextActive,
+              ]}
+            >
+              📅 Daily Flow
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewMode === 'notes' && styles.toggleButtonActive,
+            ]}
+            onPress={() => handleToggleView('notes')}
+          >
+            <Text
+              style={[
+                styles.toggleText,
+                viewMode === 'notes' && styles.toggleTextActive,
+              ]}
+            >
+              📝 Sticky Notes
+            </Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
       
-      {/* Daily Agenda */}
-      <DailyAgenda />
+      {/* Content based on view mode */}
+      {viewMode === 'agenda' ? (
+        <DailyAgenda />
+      ) : (
+        <StickyNotes title="Sticky Notes" />
+      )}
     </View>
   );
 }
