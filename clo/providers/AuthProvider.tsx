@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .insert({
           id: user.id,
           full_name: fullName,
-        });
+        } as any);
 
       if (error && error.code !== '23505') { // Ignore duplicate key errors
         console.error('Failed to create profile:', error);

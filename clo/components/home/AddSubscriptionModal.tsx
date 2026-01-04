@@ -138,9 +138,10 @@ export function AddSubscriptionModal({ visible, onClose, editItem }: AddSubscrip
     }
 
     try {
-      const subData = {
+      const cost = parseCurrencyInput(formData.cost?.toString() || '0') || 0;
+      const subData: CreateSubscriptionInput = {
         name: formData.name!,
-        cost: parseCurrencyInput(formData.cost?.toString() || '0'),
+        cost: cost,
         frequency: formData.frequency!,
         category: formData.category!,
         next_billing_date: formData.next_billing_date ? parseDateInput(formData.next_billing_date) : undefined,

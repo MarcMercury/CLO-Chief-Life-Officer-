@@ -239,6 +239,7 @@ export interface CreateSubscriptionInput {
   cancellation_url?: string;
   cancellation_instructions?: string;
   notes?: string;
+  property_id?: string;
 }
 
 export interface CreateVendorInput {

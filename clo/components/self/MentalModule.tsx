@@ -302,7 +302,7 @@ export function MentalModule() {
                   minimumValue={0}
                   maximumValue={100}
                   value={skill.progress}
-                  onSlidingComplete={(value) => handleSkillProgressChange(skill.id, value)}
+                  onSlidingComplete={(value: number) => handleSkillProgressChange(skill.id, value)}
                   minimumTrackTintColor={colors.self}
                   maximumTrackTintColor={colors.surface}
                   thumbTintColor={colors.self}

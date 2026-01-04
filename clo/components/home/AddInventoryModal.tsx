@@ -84,7 +84,7 @@ export function AddInventoryModal({ visible, onClose, editItem }: AddInventoryMo
         model_number: editItem.model_number || '',
         serial_number: editItem.serial_number || '',
         purchase_date: editItem.purchase_date ? formatDateFromDB(editItem.purchase_date) : '',
-        purchase_price: editItem.purchase_price?.toString() || '',
+        purchase_price: editItem.purchase_price ?? undefined,
         purchase_location: editItem.purchase_location || '',
         warranty_expires: editItem.warranty_expires ? formatDateFromDB(editItem.warranty_expires) : '',
         notes: editItem.notes || '',
