@@ -2,7 +2,12 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { AppState, AppStateStatus } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+import { AppState, AppStateStatus, Platform } from 'react-native';
+
+// Required for proper OAuth flow on native
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
   user: User | null;
@@ -144,15 +149,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: typeof window !== 'undefined' 
-          ? window.location.origin
-          : 'clo://auth/callback',
-      },
-    });
-    return { error };
+    try {
+      // Create redirect URL that works on both web and native
+      const redirectUrl = AuthSession.makeRedirectUri({
+        scheme: 'clo',
+        path: 'auth/callback',
+      });
+
+      console.log('[Auth] Google OAuth redirect URL:', redirectUrl);
+
+      if (Platform.OS === 'web') {
+        // Web: Use standard OAuth flow
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin + '/auth/callback',
+          },
+        });
+        return { error };
+      } else {
+        // Native: Use WebBrowser for OAuth flow
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true, // We'll handle the browser ourselves
+          },
+        });
+
+        if (error) {
+          return { error };
+        }
+
+        if (data?.url) {
+          // Open the OAuth URL in an in-app browser
+          const result = await WebBrowser.openAuthSessionAsync(
+            data.url,
+            redirectUrl,
+            {
+              showInRecents: true,
+              preferEphemeralSession: false, // Remember sign-in for better UX
+            }
+          );
+
+          console.log('[Auth] WebBrowser result:', result.type);
+
+          if (result.type === 'success' && result.url) {
+            // Parse the callback URL for tokens
+            const url = new URL(result.url);
+            const params = new URLSearchParams(url.hash.substring(1) || url.search.substring(1));
+            
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+
+            if (accessToken && refreshToken) {
+              // Set the session with the tokens
+              const { error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+
+              if (sessionError) {
+                return { error: sessionError };
+              }
+            }
+          } else if (result.type === 'cancel' || result.type === 'dismiss') {
+            // User cancelled - not an error, just return
+            return { error: null };
+          }
+        }
+      }
+
+      return { error: null };
+    } catch (err) {
+      console.error('[Auth] Google sign-in error:', err);
+      return { 
+        error: { 
+          message: 'Failed to complete Google sign-in',
+          name: 'AuthError',
+        } as AuthError 
+      };
+    }
   };
 
   const signOut = async () => {
