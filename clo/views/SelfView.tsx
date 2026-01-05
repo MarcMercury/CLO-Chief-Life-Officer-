@@ -1,14 +1,8 @@
 /**
- * SelfView - Personal Space with 5 Category Tiles
+ * SelfView - Tile-Based Personal Management
  * 
- * Structure:
- * 1. Daily 3 (Intention Engine) - Always at top
- * 2. 5 Category Tiles that navigate to full-page views:
- *    - Mental (Read List, Learn List, Focus Timer)
- *    - Physical (Health Dashboard, Health Goals)
- *    - Emotional (Vibe Check, Burn Box, Gratitude)
- *    - Practical (Daily Tasks, List Maker, Financial Pulse)
- *    - Professional (Career Goals, Networking, Idea Vault)
+ * Clean tile navigation that expands to full screen when selected.
+ * Tiles: Daily 3, Mental, Physical, Emotional, Practical, Professional
  */
 
 import React, { useState, useCallback } from 'react';
@@ -18,12 +12,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
-  SafeAreaView,
+  Dimensions,
 } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInUp,
+  SlideInRight,
+  SlideOutRight,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../providers/ThemeProvider';
@@ -39,174 +34,61 @@ import {
   ProfessionalModule,
 } from '../components/self';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const TILE_GAP = 12;
+const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - TILE_GAP) / 2;
+
 // ============================================
-// TYPES
+// TYPES & CONFIGURATION
 // ============================================
 
-type ModuleKey = 'mental' | 'physical' | 'emotional' | 'practical' | 'professional';
+type TabType = 'daily3' | 'mental' | 'physical' | 'emotional' | 'practical' | 'professional' | null;
 
-interface ModuleConfig {
-  key: ModuleKey;
+interface TileConfig {
+  key: Exclude<TabType, null>;
   label: string;
   icon: string;
   color: string;
-  description: string;
 }
 
-// ============================================
-// CONSTANTS
-// ============================================
-
-const MODULES: ModuleConfig[] = [
-  { 
-    key: 'mental', 
-    label: 'Mental', 
-    icon: '🧠', 
-    color: '#8B5CF6',
-    description: 'Read • Learn • Focus'
-  },
-  { 
-    key: 'physical', 
-    label: 'Physical', 
-    icon: '💪', 
-    color: '#EF4444',
-    description: 'Health Dashboard • Goals'
-  },
-  { 
-    key: 'emotional', 
-    label: 'Emotional', 
-    icon: '💜', 
-    color: '#EC4899',
-    description: 'Vibe • Burn • Gratitude'
-  },
-  { 
-    key: 'practical', 
-    label: 'Practical', 
-    icon: '🛠️', 
-    color: '#F59E0B',
-    description: 'Tasks • Lists • Spending'
-  },
-  { 
-    key: 'professional', 
-    label: 'Professional', 
-    icon: '💼', 
-    color: '#3B82F6',
-    description: 'Goals • Network • Ideas'
-  },
+const TILES: TileConfig[] = [
+  { key: 'daily3', label: 'Daily 3', icon: '🎯', color: '#10B981' },
+  { key: 'mental', label: 'Mental', icon: '🧠', color: '#8B5CF6' },
+  { key: 'physical', label: 'Physical', icon: '💪', color: '#EF4444' },
+  { key: 'emotional', label: 'Emotional', icon: '💜', color: '#EC4899' },
+  { key: 'practical', label: 'Practical', icon: '🛠️', color: '#F59E0B' },
+  { key: 'professional', label: 'Professional', icon: '💼', color: '#3B82F6' },
 ];
 
 // ============================================
-// MODULE TILE COMPONENT
+// TILE COMPONENT
 // ============================================
 
-interface ModuleTileProps {
-  config: ModuleConfig;
-  onPress: () => void;
+interface TileProps {
+  config: TileConfig;
   index: number;
+  onPress: () => void;
   colors: any;
 }
 
-function ModuleTile({ config, onPress, index, colors }: ModuleTileProps) {
+function Tile({ config, index, onPress, colors }: TileProps) {
   return (
-    <Animated.View entering={FadeInUp.delay(100 + index * 50).duration(300)}>
+    <Animated.View entering={FadeInUp.delay(50 + index * 50).duration(300)}>
       <TouchableOpacity
         style={[
           styles.tile,
-          { 
-            backgroundColor: colors.surface,
-            borderLeftColor: config.color,
-          }
+          { backgroundColor: `${config.color}15` },
         ]}
         onPress={() => {
-          Haptics.selectionAsync();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           onPress();
         }}
         activeOpacity={0.7}
       >
-        <View style={styles.tileLeft}>
-          <View style={[styles.tileIcon, { backgroundColor: `${config.color}20` }]}>
-            <Text style={styles.tileIconText}>{config.icon}</Text>
-          </View>
-          <View style={styles.tileInfo}>
-            <Text style={[styles.tileLabel, { color: colors.textPrimary }]}>{config.label}</Text>
-            <Text style={[styles.tileDesc, { color: colors.textTertiary }]}>{config.description}</Text>
-          </View>
-        </View>
-        
-        <Text style={[styles.tileChevron, { color: colors.textTertiary }]}>›</Text>
+        <Text style={styles.tileIcon}>{config.icon}</Text>
+        <Text style={[styles.tileLabel, { color: config.color }]}>{config.label}</Text>
       </TouchableOpacity>
     </Animated.View>
-  );
-}
-
-// ============================================
-// FULL PAGE MODULE VIEW
-// ============================================
-
-interface ModulePageProps {
-  config: ModuleConfig;
-  onClose: () => void;
-  colors: any;
-}
-
-function ModulePage({ config, onClose, colors }: ModulePageProps) {
-  const renderModuleContent = () => {
-    switch (config.key) {
-      case 'mental':
-        return <MentalModule />;
-      case 'physical':
-        return <PhysicalModule />;
-      case 'emotional':
-        return <EmotionalModule />;
-      case 'practical':
-        return <PracticalModule />;
-      case 'professional':
-        return <ProfessionalModule />;
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <Animated.View 
-        entering={FadeIn.duration(300)}
-        style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-      >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => {
-            Haptics.selectionAsync();
-            onClose();
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={[styles.backIcon, { color: colors.textPrimary }]}>←</Text>
-          <Text style={[styles.backText, { color: colors.textPrimary }]}>Back</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.modalTitleRow}>
-          <Text style={styles.modalIcon}>{config.icon}</Text>
-          <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{config.label}</Text>
-        </View>
-        
-        <View style={styles.headerSpacer} />
-      </Animated.View>
-      
-      {/* Content */}
-      <ScrollView 
-        style={styles.modalContent}
-        contentContainerStyle={styles.modalContentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View entering={FadeInUp.delay(100).duration(300)}>
-          {renderModuleContent()}
-        </Animated.View>
-        
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
-    </SafeAreaView>
   );
 }
 
@@ -216,88 +98,181 @@ function ModulePage({ config, onClose, colors }: ModulePageProps) {
 
 export default function SelfView() {
   const { colors } = useTheme();
-  const [selectedModule, setSelectedModule] = useState<ModuleConfig | null>(null);
-  
-  const handleOpenModule = useCallback((module: ModuleConfig) => {
-    setSelectedModule(module);
-  }, []);
-  
-  const handleCloseModule = useCallback(() => {
-    setSelectedModule(null);
+  const ACCENT = colors.self;
+  const [activeTab, setActiveTab] = useState<TabType>(null);
+
+  const handleBack = useCallback(() => {
+    Haptics.selectionAsync();
+    setActiveTab(null);
   }, []);
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerEmoji}>🧘</Text>
-          <View>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>Self</Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Your personal space</Text>
-          </View>
-        </View>
-      </Animated.View>
+  // ============================================
+  // RENDER FUNCTIONS FOR EACH TAB
+  // ============================================
 
-      {/* Content */}
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* ============================================ */}
-        {/* SECTION 1: DAILY 3 (INTENTION ENGINE) */}
-        {/* ============================================ */}
-        <Animated.View entering={FadeInUp.delay(100)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionIcon}>🎯</Text>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Daily 3</Text>
-            </View>
-            <Text style={[styles.sectionHint, { color: colors.textTertiary }]}>Set your intentions for today</Text>
-          </View>
-          
-          <DailyIntentions />
-        </Animated.View>
+  const renderDaily3 = () => (
+    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
+      <View style={styles.tabHeader}>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>🎯 Daily 3</Text>
+        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Set your intentions for today</Text>
+      </View>
+      <DailyIntentions />
+    </Animated.View>
+  );
 
-        {/* ============================================ */}
-        {/* SECTION 2: CATEGORY TILES */}
-        {/* ============================================ */}
-        <View style={styles.tilesSection}>
-          <Animated.View entering={FadeInUp.delay(200)} style={styles.tilesSectionHeader}>
-            <Text style={[styles.tilesSectionTitle, { color: colors.textSecondary }]}>Your Modules</Text>
-          </Animated.View>
-          
-          {MODULES.map((module, index) => (
-            <ModuleTile
-              key={module.key}
-              config={module}
-              onPress={() => handleOpenModule(module)}
+  const renderMental = () => (
+    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
+      <View style={styles.tabHeader}>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>🧠 Mental</Text>
+        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Read • Learn • Focus</Text>
+      </View>
+      <MentalModule />
+    </Animated.View>
+  );
+
+  const renderPhysical = () => (
+    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
+      <View style={styles.tabHeader}>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>💪 Physical</Text>
+        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Health Dashboard • Goals</Text>
+      </View>
+      <PhysicalModule />
+    </Animated.View>
+  );
+
+  const renderEmotional = () => (
+    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
+      <View style={styles.tabHeader}>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>💜 Emotional</Text>
+        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Vibe • Burn • Gratitude</Text>
+      </View>
+      <EmotionalModule />
+    </Animated.View>
+  );
+
+  const renderPractical = () => (
+    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
+      <View style={styles.tabHeader}>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>🛠️ Practical</Text>
+        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Tasks • Lists • Spending</Text>
+      </View>
+      <PracticalModule />
+    </Animated.View>
+  );
+
+  const renderProfessional = () => (
+    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
+      <View style={styles.tabHeader}>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>💼 Professional</Text>
+        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Goals • Network • Ideas</Text>
+      </View>
+      <ProfessionalModule />
+    </Animated.View>
+  );
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'daily3':
+        return renderDaily3();
+      case 'mental':
+        return renderMental();
+      case 'physical':
+        return renderPhysical();
+      case 'emotional':
+        return renderEmotional();
+      case 'practical':
+        return renderPractical();
+      case 'professional':
+        return renderProfessional();
+      default:
+        return null;
+    }
+  };
+
+  // ============================================
+  // TILE GRID VIEW (HOME STATE)
+  // ============================================
+
+  const renderTileGrid = () => (
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Animated.View entering={FadeIn.duration(300)}>
+        {/* Tile Grid */}
+        <View style={styles.tileGrid}>
+          {TILES.map((tile, index) => (
+            <Tile
+              key={tile.key}
+              config={tile}
               index={index}
+              onPress={() => setActiveTab(tile.key)}
               colors={colors}
             />
           ))}
         </View>
+      </Animated.View>
+      
+      <View style={styles.bottomSpacer} />
+    </ScrollView>
+  );
 
-        {/* Bottom spacer */}
+  // ============================================
+  // FULL SCREEN TAB VIEW
+  // ============================================
+
+  const renderFullScreenTab = () => (
+    <Animated.View
+      entering={SlideInRight.duration(300)}
+      exiting={SlideOutRight.duration(300)}
+      style={[styles.fullScreenContainer, { backgroundColor: colors.background }]}
+    >
+      {/* Back Header */}
+      <View style={[styles.backHeader, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={[styles.backIcon, { color: ACCENT }]}>←</Text>
+          <Text style={[styles.backText, { color: ACCENT }]}>Self</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Tab Content */}
+      <ScrollView
+        style={styles.tabScrollView}
+        contentContainerStyle={styles.tabScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {renderActiveTab()}
         <View style={styles.bottomSpacer} />
       </ScrollView>
-      
-      {/* Full Page Module Modal */}
-      <Modal
-        visible={selectedModule !== null}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={handleCloseModule}
-      >
-        {selectedModule && (
-          <ModulePage
-            config={selectedModule}
-            onClose={handleCloseModule}
-            colors={colors}
-          />
-        )}
-      </Modal>
+    </Animated.View>
+  );
+
+  // ============================================
+  // MAIN RENDER
+  // ============================================
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header - only show when no tab active */}
+      {activeTab === null && (
+        <Animated.View entering={FadeIn.duration(500)} style={styles.header}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerEmoji}>🧘</Text>
+            <View>
+              <Text style={[styles.title, { color: ACCENT }]}>Self</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Your personal space</Text>
+            </View>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Content */}
+      {activeTab === null ? renderTileGrid() : renderFullScreenTab()}
     </View>
   );
 }
@@ -315,7 +290,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: 60,
     paddingBottom: spacing.md,
   },
   headerContent: {
@@ -324,11 +299,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   headerEmoji: {
-    fontSize: 32,
+    fontSize: 36,
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: '300',
+    letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 14,
@@ -339,98 +315,44 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: 120,
   },
   
-  // Section styles
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionHeader: {
-    marginBottom: spacing.md,
-  },
-  sectionTitleRow: {
+  // Tile Grid
+  tileGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    flexWrap: 'wrap',
+    gap: TILE_GAP,
   },
-  sectionIcon: {
-    fontSize: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  sectionHint: {
-    fontSize: 13,
-    marginTop: 4,
-    marginLeft: 28,
-  },
-  
-  // Tiles section
-  tilesSection: {
-    marginTop: spacing.md,
-  },
-  tilesSectionHeader: {
-    marginBottom: spacing.md,
-  },
-  tilesSectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  
-  // Tile styles
   tile: {
-    flexDirection: 'row',
+    width: TILE_SIZE,
+    height: TILE_SIZE,
+    borderRadius: borderRadius.xl,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderLeftWidth: 4,
-  },
-  tileLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
   },
   tileIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tileIconText: {
-    fontSize: 20,
-  },
-  tileInfo: {
-    flex: 1,
+    fontSize: 40,
+    marginBottom: spacing.sm,
   },
   tileLabel: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  tileDesc: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  tileChevron: {
-    fontSize: 24,
-    fontWeight: '300',
+    textAlign: 'center',
   },
   
-  // Modal styles
-  modalContainer: {
+  // Full Screen Tab
+  fullScreenContainer: {
     flex: 1,
   },
-  modalHeader: {
+  backHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: 60,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
   backButton: {
@@ -446,26 +368,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  modalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  modalIcon: {
-    fontSize: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  headerSpacer: {
-    width: 60, // Balance the back button width
-  },
-  modalContent: {
+  tabScrollView: {
     flex: 1,
   },
-  modalContentContainer: {
+  tabScrollContent: {
     padding: spacing.lg,
+  },
+  tabContent: {
+    flex: 1,
+  },
+  tabHeader: {
+    marginBottom: spacing.lg,
+  },
+  tabTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  tabSubtitle: {
+    fontSize: 14,
+    marginTop: 4,
   },
   
   // Bottom spacer
