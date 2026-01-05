@@ -37,7 +37,8 @@ import {
 } from '@/services/pulseService';
 import { Text, Heading, Subheading, Label, Caption } from '@/components/ui';
 import { DailyAgenda, StickyNotes } from '@/components/dashboard';
-import { colors, spacing, borderRadius, typography } from '@/constants/theme';
+import { useTheme } from '../providers/ThemeProvider';
+import { spacing, borderRadius, typography } from '@/constants/theme';
 import haptics from '@/lib/haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -54,6 +55,10 @@ type ViewMode = 'agenda' | 'widgets';
 // ============================================
 
 export default function DashboardView() {
+  // Theme
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('agenda');
   const [refreshing, setRefreshing] = useState(false);
@@ -396,6 +401,9 @@ interface WidgetSkeletonProps {
 }
 
 function WidgetSkeleton({ accentColor, error }: WidgetSkeletonProps) {
+  const { colors } = useTheme();
+  const skeletonStyles = React.useMemo(() => createSkeletonStyles(colors), [colors]);
+  
   const shimmer = useSharedValue(0);
 
   useEffect(() => {
@@ -430,7 +438,7 @@ function WidgetSkeleton({ accentColor, error }: WidgetSkeletonProps) {
   );
 }
 
-const skeletonStyles = StyleSheet.create({
+const createSkeletonStyles = (colors: any) => StyleSheet.create({
   container: {
     alignItems: 'center',
     gap: 12,
@@ -440,7 +448,7 @@ const skeletonStyles = StyleSheet.create({
     height: 12,
     width: '80%',
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colors.isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
   },
   lineShort: {
     width: '40%',
@@ -453,7 +461,7 @@ const skeletonStyles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colors.isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
   },
   errorContainer: {
     alignItems: 'center',
@@ -469,16 +477,16 @@ const skeletonStyles = StyleSheet.create({
   },
   errorHint: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textTertiary,
     marginTop: 4,
   },
 });
 
 // ============================================
-// MAIN STYLES
+// MAIN STYLES FACTORY
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -602,7 +610,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
   },
   selfWidget: {
     borderLeftWidth: 4,

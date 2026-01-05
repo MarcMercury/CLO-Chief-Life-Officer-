@@ -42,9 +42,8 @@ import {
 } from '@/hooks/useHomeOS';
 import { usePropertyStore } from '@/store/propertyStore';
 import { HomeInventoryItem, Subscription, Vendor } from '@/types/homeos';
-import { colors, spacing, borderRadius } from '@/constants/theme';
-
-const ACCENT = colors.home;
+import { useTheme } from '../providers/ThemeProvider';
+import { spacing, borderRadius } from '@/constants/theme';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TILE_GAP = 12;
 const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - TILE_GAP) / 2;
@@ -124,6 +123,10 @@ interface TileProps {
 }
 
 function Tile({ config, index, badge, onPress }: TileProps) {
+  const { colors } = useTheme();
+  const ACCENT = colors.home;
+  const styles = React.useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  
   return (
     <Animated.View entering={FadeInUp.delay(50 + index * 50).duration(300)}>
       <TouchableOpacity
@@ -151,6 +154,11 @@ function Tile({ config, index, badge, onPress }: TileProps) {
 // ============================================
 
 export default function HomeView() {
+  // Theme
+  const { colors } = useTheme();
+  const ACCENT = colors.home;
+  const styles = React.useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  
   const [activeTab, setActiveTab] = useState<TabType>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addModalType, setAddModalType] = useState<'inventory' | 'subscription'>('inventory');
@@ -796,10 +804,10 @@ export default function HomeView() {
 }
 
 // ============================================
-// STYLES
+// STYLES FACTORY
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, ACCENT: string) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -897,7 +905,7 @@ const styles = StyleSheet.create({
     minWidth: 70,
   },
   backText: {
-    color: colors.home,
+    color: ACCENT,
     fontSize: 16,
     fontWeight: '500',
   },
@@ -1087,7 +1095,7 @@ const styles = StyleSheet.create({
   burnValue: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.home,
+    color: ACCENT,
   },
   burnSub: {
     fontSize: 12,

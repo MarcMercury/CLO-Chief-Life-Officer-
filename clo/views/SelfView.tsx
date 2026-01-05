@@ -39,10 +39,10 @@ import NoteDetailModal from '../components/modals/NoteDetailModal';
 import { EmotionalModule } from '../components/self';
 import { useItems, useUpdateItemStatus, useCreateItem, useDeleteItem, useUpdateItem } from '../hooks/useItems';
 import { ItemWithCircles } from '../types/database';
-import { colors, spacing, borderRadius } from '../constants/theme';
+import { useTheme } from '../providers/ThemeProvider';
+import { spacing, borderRadius } from '../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ACCENT = colors.self;
 
 // ============================================
 // TYPES
@@ -75,22 +75,6 @@ const BUCKETS: BucketConfig[] = [
   { id: 'wishlist', label: 'Wishlist', icon: '⭐' },
 ];
 
-const NOTE_COLORS: Record<NoteColor, string> = {
-  default: colors.surface,
-  yellow: '#FEF3C7',
-  blue: '#DBEAFE',
-  green: '#D1FAE5',
-  pink: '#FCE7F3',
-};
-
-const NOTE_TEXT_COLORS: Record<NoteColor, string> = {
-  default: colors.textPrimary,
-  yellow: '#92400E',
-  blue: '#1E40AF',
-  green: '#065F46',
-  pink: '#9D174D',
-};
-
 const DAILY_GOALS: DailyGoal[] = [
   { id: 'water', label: 'Drink Water', icon: '💧' },
   { id: 'exercise', label: 'Exercise', icon: '🏃' },
@@ -104,12 +88,36 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 // ============================================
 
 export default function SelfView() {
+  const { theme, colors } = useTheme();
+  const ACCENT = colors.self;
+  const isDark = theme.isDark;
+  
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedBucket, setSelectedBucket] = useState<ListBucket>('all');
   const [showWeeklyView, setShowWeeklyView] = useState(false);
   const [quickAddText, setQuickAddText] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedNote, setSelectedNote] = useState<ItemWithCircles | null>(null);
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  
+  // Note colors that adapt to theme
+  const NOTE_COLORS: Record<NoteColor, string> = useMemo(() => ({
+    default: colors.surface,
+    yellow: isDark ? '#433B24' : '#FEF3C7',
+    blue: isDark ? '#1E3A5F' : '#DBEAFE',
+    green: isDark ? '#1A3A2F' : '#D1FAE5',
+    pink: isDark ? '#3D2233' : '#FCE7F3',
+  }), [colors, isDark]);
+
+  const NOTE_TEXT_COLORS: Record<NoteColor, string> = useMemo(() => ({
+    default: colors.textPrimary,
+    yellow: isDark ? '#FCD34D' : '#92400E',
+    blue: isDark ? '#93C5FD' : '#1E40AF',
+    green: isDark ? '#6EE7B7' : '#065F46',
+    pink: isDark ? '#F9A8D4' : '#9D174D',
+  }), [colors, isDark]);
   
   // Fetch items from database
   const { data: allItems, isLoading, refetch } = useItems('SELF');
@@ -660,6 +668,10 @@ interface SwipeableTaskCardProps {
 }
 
 function SwipeableTaskCard({ task, index, onToggle, onSnooze, onDelete }: SwipeableTaskCardProps) {
+  const { colors } = useTheme();
+  const ACCENT = colors.self;
+  const styles = React.useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  
   const translateX = useSharedValue(0);
   const isCompleted = task.status === 'COMPLETED';
   const bucket = (task.metadata as any)?.bucket || 'general';
@@ -769,11 +781,33 @@ interface NoteCardProps {
 }
 
 function NoteCard({ note, index, onPress }: NoteCardProps) {
+  const { theme, colors } = useTheme();
+  const ACCENT = colors.self;
+  const isDark = theme.isDark;
+  const styles = React.useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  
+  // Note colors that adapt to theme
+  const NOTE_COLORS_LOCAL: Record<NoteColor, string> = {
+    default: colors.surface,
+    yellow: isDark ? '#433B24' : '#FEF3C7',
+    blue: isDark ? '#1E3A5F' : '#DBEAFE',
+    green: isDark ? '#1A3A2F' : '#D1FAE5',
+    pink: isDark ? '#3D2233' : '#FCE7F3',
+  };
+
+  const NOTE_TEXT_COLORS_LOCAL: Record<NoteColor, string> = {
+    default: colors.textPrimary,
+    yellow: isDark ? '#FCD34D' : '#92400E',
+    blue: isDark ? '#93C5FD' : '#1E40AF',
+    green: isDark ? '#6EE7B7' : '#065F46',
+    pink: isDark ? '#F9A8D4' : '#9D174D',
+  };
+  
   const metadata = note.metadata as any;
   const isPinned = metadata?.pinned || false;
   const noteColor: NoteColor = metadata?.color || 'default';
-  const backgroundColor = NOTE_COLORS[noteColor];
-  const textColor = NOTE_TEXT_COLORS[noteColor];
+  const backgroundColor = NOTE_COLORS_LOCAL[noteColor];
+  const textColor = NOTE_TEXT_COLORS_LOCAL[noteColor];
   
   return (
     <Animated.View 
@@ -809,10 +843,10 @@ function NoteCard({ note, index, onPress }: NoteCardProps) {
 }
 
 // ============================================
-// STYLES
+// STYLES FACTORY
 // ============================================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, ACCENT: string) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
