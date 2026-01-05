@@ -111,12 +111,13 @@ export interface OpenLoop {
 export interface EmotionalLog {
   id: string;
   capsule_id: string;
-  logged_by: string;
-  tone: EmotionalTone;
-  energy_level: number | null; // 1-10
+  user_id: string;
+  mood_self: string; // Emoji: '😊', '😔', etc.
+  mood_partner?: string | null; // How I feel about them
+  mood_relationship?: string | null; // How I feel about "us"
   notes: string | null;
   logged_at: string;
-  created_at: string;
+  created_at?: string;
 }
 
 // ============================================

@@ -216,6 +216,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     gap: 12,
+    paddingBottom: 100,
   },
   itemCard: {
     backgroundColor: '#1E1E1E',
@@ -295,6 +296,7 @@ const styles = StyleSheet.create({
   addButton: {
     backgroundColor: '#e17055',
     margin: 16,
+    marginBottom: 120,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',

@@ -8,40 +8,32 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text as RNText,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   FadeIn,
   FadeInUp,
-  FadeInDown,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
   Easing,
-  interpolate,
 } from 'react-native-reanimated';
 import { usePulse, useLastSyncedText } from '@/hooks/usePulse';
 import {
   getGreeting,
-  getMoodEmoji,
-  getWeatherEmoji,
-  formatTime,
 } from '@/services/pulseService';
-import { Text, Heading, Subheading, Label, Caption } from '@/components/ui';
+import { Text, Heading } from '@/components/ui';
 import { DailyAgenda, StickyNotes } from '@/components/dashboard';
 import { useTheme } from '../providers/ThemeProvider';
-import { spacing, borderRadius, typography } from '@/constants/theme';
+import { spacing, borderRadius } from '@/constants/theme';
 import haptics from '@/lib/haptics';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SYNC_BUTTON_SIZE = 60;
 
 // ============================================
@@ -65,13 +57,8 @@ export default function DashboardView() {
   
   const {
     isSyncing,
-    bioMetrics,
-    homeStatus,
-    relationshipContext,
     lastSyncedAt,
-    errors,
     triggerSync,
-    sources,
     isUsingRealData,
   } = usePulse();
   
@@ -232,7 +219,7 @@ export default function DashboardView() {
               styles.toggleText,
               viewMode === 'widgets' && styles.toggleTextActive,
             ]}>
-              📊 Widgets
+              � Notes
             </Text>
           </TouchableOpacity>
         </View>
@@ -254,233 +241,15 @@ export default function DashboardView() {
             />
           }
         >
-          {/* Widget Grid */}
-          <View style={styles.widgetGrid}>
-            {/* Self / Bio Widget */}
-            <Animated.View entering={FadeInUp.delay(100).duration(400)}>
-              <TouchableOpacity style={[styles.widget, styles.selfWidget]} activeOpacity={0.7}>
-                {bioMetrics ? (
-                  <>
-                    <View style={styles.widgetHeader}>
-                      <Text style={styles.widgetEmoji}>{getMoodEmoji(bioMetrics.mood)}</Text>
-                      <Text style={[styles.widgetTitle, { color: colors.self }]}>Self</Text>
-                    </View>
-                    <View style={styles.recoveryRing}>
-                      <View style={[
-                        styles.recoveryProgress,
-                        { 
-                          borderColor: colors.self,
-                          borderWidth: 3,
-                        }
-                      ]}>
-                        <Text style={styles.recoveryScore}>{bioMetrics.recoveryScore}</Text>
-                        <Text style={styles.recoveryLabel}>Recovery</Text>
-                      </View>
-                    </View>
-                    <View style={styles.widgetStats}>
-                      <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{bioMetrics.sleepHours}h</Text>
-                        <Text style={styles.statLabel}>Sleep</Text>
-                      </View>
-                      <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{bioMetrics.heartRateResting}</Text>
-                        <Text style={styles.statLabel}>BPM</Text>
-                      </View>
-                      <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{bioMetrics.stepsToday}</Text>
-                        <Text style={styles.statLabel}>Steps</Text>
-                      </View>
-                    </View>
-                  </>
-                ) : (
-                  <WidgetSkeleton accentColor={colors.self} error={errors.bioMetrics} />
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Home Widget */}
-            <Animated.View entering={FadeInUp.delay(200).duration(400)}>
-              <TouchableOpacity style={[styles.widget, styles.homeWidget]} activeOpacity={0.7}>
-                {homeStatus ? (
-                  <>
-                    <View style={styles.widgetHeader}>
-                      <Text style={styles.widgetEmoji}>{getWeatherEmoji(homeStatus.condition)}</Text>
-                      <Text style={[styles.widgetTitle, { color: colors.home }]}>Home</Text>
-                    </View>
-                    <View style={styles.homeMain}>
-                      <Text style={styles.temperature}>{homeStatus.temperature}°</Text>
-                      <Text style={styles.condition}>{homeStatus.condition}</Text>
-                    </View>
-                    <View style={styles.securityStatus}>
-                      <View style={[
-                        styles.securityDot,
-                        { backgroundColor: homeStatus.securityStatus === 'secure' ? '#22c55e' : '#ef4444' }
-                      ]} />
-                      <Text style={styles.securityText}>
-                        {homeStatus.securityStatus === 'secure' ? 'Home is Secure' : 'Alert Active'}
-                      </Text>
-                    </View>
-                  </>
-                ) : (
-                  <WidgetSkeleton accentColor={colors.home} error={errors.homeStatus} />
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Relationships Widget */}
-            <Animated.View entering={FadeInUp.delay(300).duration(400)}>
-              <TouchableOpacity style={[styles.widget, styles.relWidget]} activeOpacity={0.7}>
-                {relationshipContext ? (
-                  <>
-                    <View style={styles.widgetHeader}>
-                      <Text style={styles.widgetEmoji}>❤️</Text>
-                      <Text style={[styles.widgetTitle, { color: colors.relationships }]}>Relationships</Text>
-                    </View>
-                    
-                    {relationshipContext.nextMeeting ? (
-                      <View style={styles.relItem}>
-                        <Text style={styles.relLabel}>Next Meeting</Text>
-                        <Text style={styles.relValue}>
-                          {relationshipContext.nextMeeting.name} at {formatTime(relationshipContext.nextMeeting.time)}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={styles.relItem}>
-                        <Text style={styles.relLabel}>Calendar</Text>
-                        <Text style={styles.relValue}>No meetings today</Text>
-                      </View>
-                    )}
-
-                    {relationshipContext.overdueContact && (
-                      <View style={[styles.relItem, styles.relWarning]}>
-                        <Text style={styles.relLabel}>Overdue Contact</Text>
-                        <Text style={styles.relValue}>
-                          {relationshipContext.overdueContact.name} ({relationshipContext.overdueContact.daysSinceContact}d)
-                        </Text>
-                      </View>
-                    )}
-
-                    {relationshipContext.upcomingAnniversary && (
-                      <View style={styles.relItem}>
-                        <Text style={styles.relLabel}>Coming Up</Text>
-                        <Text style={styles.relValue}>
-                          🎂 {relationshipContext.upcomingAnniversary.name}'s anniversary in {relationshipContext.upcomingAnniversary.daysUntil}d
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <WidgetSkeleton accentColor={colors.relationships} error={errors.relationshipContext} />
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-
-          {/* Sticky Notes Section */}
-          <Animated.View entering={FadeInUp.delay(400).duration(400)} style={styles.stickyNotesContainer}>
-            <StickyNotes title="Quick Notes" />
-          </Animated.View>
-
-          {/* Bottom hint */}
-          <Animated.View entering={FadeIn.delay(500).duration(400)} style={styles.hintContainer}>
-            <Text style={styles.hint}>Swipe the orb to explore circles</Text>
+          {/* Notes Section */}
+          <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.stickyNotesContainer}>
+            <StickyNotes title="Notes:" />
           </Animated.View>
         </ScrollView>
       )}
     </View>
   );
 }
-
-// ============================================
-// SKELETON LOADER COMPONENT
-// ============================================
-
-interface WidgetSkeletonProps {
-  accentColor: string;
-  error: string | null;
-}
-
-function WidgetSkeleton({ accentColor, error }: WidgetSkeletonProps) {
-  const { colors } = useTheme();
-  const skeletonStyles = React.useMemo(() => createSkeletonStyles(colors), [colors]);
-  
-  const shimmer = useSharedValue(0);
-
-  useEffect(() => {
-    shimmer.value = withRepeat(
-      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-  }, []);
-
-  const shimmerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(shimmer.value, [0, 1], [0.3, 0.6]),
-  }));
-
-  if (error) {
-    return (
-      <View style={skeletonStyles.errorContainer}>
-        <Text style={skeletonStyles.errorIcon}>⚠️</Text>
-        <Text style={skeletonStyles.errorText}>Connection Lost</Text>
-        <Text style={skeletonStyles.errorHint}>Pull to retry</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={skeletonStyles.container}>
-      <Animated.View style={[skeletonStyles.line, skeletonStyles.lineShort, shimmerStyle]} />
-      <Animated.View style={[skeletonStyles.circle, shimmerStyle]} />
-      <Animated.View style={[skeletonStyles.line, shimmerStyle]} />
-      <Animated.View style={[skeletonStyles.line, skeletonStyles.lineMedium, shimmerStyle]} />
-    </View>
-  );
-}
-
-const createSkeletonStyles = (colors: any) => StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-  },
-  line: {
-    height: 12,
-    width: '80%',
-    borderRadius: 6,
-    backgroundColor: colors.isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-  },
-  lineShort: {
-    width: '40%',
-    alignSelf: 'flex-start',
-  },
-  lineMedium: {
-    width: '60%',
-  },
-  circle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-  },
-  errorContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  errorIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#ef4444',
-  },
-  errorHint: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 4,
-  },
-});
 
 // ============================================
 // MAIN STYLES FACTORY
@@ -600,144 +369,11 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontWeight: '600',
   },
   
-  // Widgets
-  widgetGrid: {
-    gap: spacing.md,
-    paddingTop: spacing.md,
-  },
-  widget: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-  },
-  selfWidget: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.self,
-  },
-  homeWidget: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.home,
-  },
-  relWidget: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.relationships,
-  },
-  widgetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  widgetEmoji: {
-    fontSize: 20,
-  },
-  widgetTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
-  recoveryRing: {
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  recoveryProgress: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recoveryScore: {
-    fontSize: 28,
-    fontWeight: '300',
-    color: colors.textPrimary,
-  },
-  recoveryLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  widgetStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '300',
-    color: colors.textPrimary,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  homeMain: {
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  temperature: {
-    fontSize: 48,
-    fontWeight: '200',
-    color: colors.textPrimary,
-  },
-  condition: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  securityStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  securityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  securityText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  relItem: {
-    marginBottom: spacing.sm,
-  },
-  relWarning: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    marginHorizontal: -spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  relLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  relValue: {
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
+  // Notes Container
   stickyNotesContainer: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.md,
-  },
-  hintContainer: {
-    alignItems: 'center',
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-  },
-  hint: {
-    fontSize: 14,
-    color: colors.textTertiary,
-    letterSpacing: 0.5,
   },
 });

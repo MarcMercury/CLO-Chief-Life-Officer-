@@ -512,6 +512,7 @@ const styles = StyleSheet.create({
   addButton: {
     backgroundColor: '#e17055',
     margin: 16,
+    marginBottom: 120,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',

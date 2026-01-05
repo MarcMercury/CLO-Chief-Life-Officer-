@@ -3,3 +3,5 @@ export * from './useDailyFlow';
 export * from './useHomeOS';
 export * from './useCapsules';
 export * from './usePulse';
+export * from './useSelf';
+export * from './useIntegrations';

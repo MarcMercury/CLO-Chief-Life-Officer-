@@ -514,7 +514,7 @@ export function useLogEmotion() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { capsule_id: string; mood_self: string; mood_relationship?: string }) => {
+    mutationFn: async (input: { capsule_id: string; mood_self: string; mood_partner?: string; mood_relationship?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -524,6 +524,7 @@ export function useLogEmotion() {
           capsule_id: input.capsule_id,
           user_id: user.id,
           mood_self: input.mood_self,
+          mood_partner: input.mood_partner || null,
           mood_relationship: input.mood_relationship || null,
         })
         .select()

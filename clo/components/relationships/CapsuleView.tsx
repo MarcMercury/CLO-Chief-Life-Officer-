@@ -29,6 +29,8 @@ import {
   useCreateOpenLoop,
 } from '@/hooks/useCapsules';
 
+import { MoodEmoji } from '@/types/relationships';
+
 const { width } = Dimensions.get('window');
 
 type CapsuleZone = 'home' | 'pulse' | 'plan' | 'decide' | 'resolve' | 'vault' | 'chat';
@@ -93,9 +95,29 @@ export default function CapsuleView({
   const hasPulseToday = useMemo(() => {
     const today = new Date().toDateString();
     return emotionalLogs.some((log: any) => 
-      new Date(log.logged_at || log.created_at).toDateString() === today
+      new Date(log.logged_at || log.created_at).toDateString() === today &&
+      log.user_id === userId
     );
-  }, [emotionalLogs]);
+  }, [emotionalLogs, userId]);
+
+  // Get partner's mood for today
+  const partnerMoodsToday = useMemo(() => {
+    const today = new Date().toDateString();
+    const partnerLog = emotionalLogs.find((log: any) => 
+      new Date(log.logged_at || log.created_at).toDateString() === today &&
+      log.user_id !== userId
+    );
+    
+    if (partnerLog) {
+      return {
+        self: partnerLog.mood_self as MoodEmoji | undefined,
+        partner: partnerLog.mood_partner as MoodEmoji | undefined,
+        us: partnerLog.mood_relationship as MoodEmoji | undefined,
+        logged_at: partnerLog.logged_at || partnerLog.created_at,
+      };
+    }
+    return undefined;
+  }, [emotionalLogs, userId]);
 
   // If no capsule exists, show onboarding
   if (!capsuleId && !capsule) {
@@ -227,11 +249,14 @@ export default function CapsuleView({
                 logEmotion({
                   capsule_id: capsuleId,
                   mood_self: moods.self || '😐',
+                  mood_partner: moods.partner,
                   mood_relationship: moods.us, // 'us' is the relationship mood
                 });
               }
-              setActiveZone('home');
+              // Don't navigate away - show summary
             }}
+            partnerMoods={partnerMoodsToday}
+            partnerName={capsule?.name || 'Partner'}
           />
         );
       case 'plan':
