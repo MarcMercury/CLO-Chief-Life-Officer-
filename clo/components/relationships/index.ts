@@ -13,6 +13,7 @@ export { default as PlanModule } from './PlanModule';
 export { default as DecideModule } from './DecideModule';
 export { default as ResolveModule } from './ResolveModule';
 export { default as VaultModule } from './VaultModule';
+export { default as VaultEnhanced } from './VaultEnhanced';
 export { default as SignalChat } from './SignalChat';
 
 // Unified Workflow Components (Plan → Resolve → Decisions)

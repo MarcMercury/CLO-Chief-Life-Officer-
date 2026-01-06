@@ -5,4 +5,5 @@
  */
 
 export { Text, Heading, Subheading, Label, Caption } from './Text';
+export { Card, PressableCard, TileCard } from './Card';
 export { AnimatedListItem, AnimatedListContainer } from './AnimatedListItem';

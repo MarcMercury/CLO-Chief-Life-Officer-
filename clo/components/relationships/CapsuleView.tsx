@@ -15,7 +15,7 @@ import PulseCheckIn from './PulseCheckIn';
 import PlanModule from './PlanModule';
 import DecideModule from './DecideModule';
 import ResolveModule from './ResolveModule';
-import VaultModule from './VaultModule';
+import VaultEnhanced from './VaultEnhanced';
 import SignalChat from './SignalChat';
 import {
   useCapsuleMessages,
@@ -28,6 +28,7 @@ import {
   useOpenLoops,
   useCreateOpenLoop,
 } from '@/hooks/useCapsules';
+import { useVaultState } from '@/hooks/useVault';
 
 // Import custom icons
 import {
@@ -97,9 +98,8 @@ export default function CapsuleView({
     [sharedTasks]
   );
   
-  // Local state for vault (still needs migration table)
-  const [vaultItems, setVaultItems] = useState<any[]>([]);
-  const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
+  // Use vault state hook for proper persistence
+  const vaultState = useVaultState(capsuleId || '');
   
   // Check if pulse done today
   const hasPulseToday = useMemo(() => {
@@ -358,37 +358,41 @@ export default function CapsuleView({
         );
       case 'vault':
         return (
-          <VaultModule
-            items={vaultItems}
-            onUpload={(title: string, content: string, contentType: string) => {
-              setVaultItems([...vaultItems, {
-                id: Date.now().toString(),
-                title,
-                content_type: contentType,
-                encrypted_content: content,
-                uploaded_by: userId,
-                approved_by_uploader: true,
-                approved_by_partner: false,
-                status: 'pending',
-                created_at: new Date().toISOString(),
-              }]);
+          <VaultEnhanced
+            items={vaultState.items}
+            hasPasscode={vaultState.hasPasscode}
+            partnerHasPasscode={vaultState.partnerHasPasscode}
+            isUnlocked={vaultState.isUnlocked}
+            onSetupPasscode={async (passcode: string) => {
+              await vaultState.setupPasscode(passcode);
             }}
-            onApprove={(id: string) => {
-              setVaultItems(vaultItems.map((item: any) =>
-                item.id === id
-                  ? { ...item, approved_by_partner: true, status: 'visible' }
-                  : item
-              ));
+            onUnlock={async (passcode: string) => {
+              return await vaultState.verifyPasscode(passcode);
+            }}
+            onUpload={async (title: string, content: string, contentType: any) => {
+              await vaultState.uploadItem({
+                title,
+                content,
+                content_type: contentType,
+              });
+            }}
+            onUploadFile={async (uri: string, fileName: string, fileSize: number, mimeType: string, itemType: any, title: string) => {
+              // Upload file to storage first
+              const fileUrl = await vaultState.uploadFile(uri, fileName, mimeType);
+              // Then create vault item
+              await vaultState.uploadItem({
+                title,
+                content_type: itemType,
+                file_url: fileUrl,
+                file_name: fileName,
+                file_size: fileSize,
+                mime_type: mimeType,
+              });
+            }}
+            onApprove={async (id: string) => {
+              await vaultState.approveItem(id);
             }}
             currentUserId={userId}
-            isUnlocked={isVaultUnlocked}
-            onUnlock={(pin: string) => {
-              if (pin.length === 4) {
-                setIsVaultUnlocked(true);
-                return true;
-              }
-              return false;
-            }}
           />
         );
       case 'chat':
