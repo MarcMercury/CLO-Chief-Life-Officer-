@@ -14,3 +14,8 @@ export { default as DecideModule } from './DecideModule';
 export { default as ResolveModule } from './ResolveModule';
 export { default as VaultModule } from './VaultModule';
 export { default as SignalChat } from './SignalChat';
+
+// Unified Workflow Components (Plan → Resolve → Decisions)
+export { default as CapsulePlanNew } from './CapsulePlanNew';
+export { default as CapsuleResolveNew } from './CapsuleResolveNew';
+export { default as CapsuleDecisionsNew } from './CapsuleDecisionsNew';

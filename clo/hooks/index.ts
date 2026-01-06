@@ -5,3 +5,4 @@ export * from './useCapsules';
 export * from './usePulse';
 export * from './useSelf';
 export * from './useIntegrations';
+export * from './useRelationshipItems';

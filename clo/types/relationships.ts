@@ -427,3 +427,148 @@ export interface PulseCheckInInput {
   mood_relationship: MoodEmoji;
   notes?: string;
 }
+
+// ============================================
+// UNIFIED RELATIONSHIP ITEMS
+// Supports: Plan → Resolve → Decisions workflow
+// ============================================
+
+export type RelationshipItemCategory = 
+  | 'travel'
+  | 'money' 
+  | 'shopping'
+  | 'gift'
+  | 'activity'
+  | 'date'
+  | 'home'
+  | 'general';
+
+export type RelationshipItemStatus = 
+  | 'planning'        // In Plan section, awaiting votes
+  | 'needs_resolve'   // Needs discussion/compromise
+  | 'resolving'       // In Resolve section, both working on it
+  | 'pending_decision'// Ready for final confirmation
+  | 'confirmed'       // Both confirmed, in Decisions as active
+  | 'completed'       // Done/accomplished
+  | 'archived';       // No longer relevant
+
+export type RelationshipItemPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export interface RelationshipItem {
+  id: string;
+  capsule_id: string;
+  
+  // Core item data
+  title: string;
+  description: string | null;
+  category: RelationshipItemCategory;
+  
+  // Who created it
+  created_by: string;
+  
+  // Workflow status
+  status: RelationshipItemStatus;
+  
+  // Voting in Plan phase (null = not voted, true = 👍, false = 👎)
+  vote_user_a: boolean | null;
+  vote_user_b: boolean | null;
+  
+  // Resolution fields (used when in Resolve)
+  feeling_a: string | null;
+  need_a: string | null;
+  willing_a: string | null;
+  compromise_a: string | null;
+  
+  feeling_b: string | null;
+  need_b: string | null;
+  willing_b: string | null;
+  compromise_b: string | null;
+  
+  // Final resolution notes
+  resolution_notes: string | null;
+  
+  // Decision confirmation
+  confirmed_by_a: boolean;
+  confirmed_by_b: boolean;
+  confirmed_at: string | null;
+  
+  // Optional fields for specific categories
+  estimated_cost: number | null;
+  currency: string;
+  scheduled_date: string | null;
+  location: string | null;
+  priority: RelationshipItemPriority;
+  
+  // Deadline for decision (optional)
+  deadline: string | null;
+  
+  // Tracking timestamps
+  moved_to_resolve_at: string | null;
+  moved_to_decision_at: string | null;
+  completed_at: string | null;
+  
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RelationshipItemComment {
+  id: string;
+  item_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+export interface RelationshipItemHistory {
+  id: string;
+  item_id: string;
+  user_id: string;
+  action: string;
+  details: Record<string, unknown> | null;
+  created_at: string;
+}
+
+// Input types
+export interface CreateRelationshipItemInput {
+  capsule_id: string;
+  title: string;
+  description?: string;
+  category?: RelationshipItemCategory;
+  estimated_cost?: number;
+  currency?: string;
+  scheduled_date?: string;
+  location?: string;
+  priority?: RelationshipItemPriority;
+  deadline?: string;
+}
+
+export interface VoteOnItemInput {
+  item_id: string;
+  vote: boolean; // true = 👍, false = 👎
+}
+
+export interface SubmitPerspectiveInput {
+  item_id: string;
+  feeling: string;
+  need: string;
+  willing: string;
+  compromise: string;
+}
+
+export interface AddCommentInput {
+  item_id: string;
+  content: string;
+}
+
+// Convenience types for UI
+export interface RelationshipItemWithCounts extends RelationshipItem {
+  comment_count: number;
+}
+
+export interface CapsuleItemCounts {
+  planning: number;
+  resolving: number;
+  pending_decision: number;
+  confirmed: number;
+  completed: number;
+}
