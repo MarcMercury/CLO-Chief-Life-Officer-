@@ -29,6 +29,16 @@ import {
   useCreateOpenLoop,
 } from '@/hooks/useCapsules';
 
+// Import custom icons
+import {
+  PulseIcon,
+  PlanIcon,
+  DecideIcon,
+  ResolveIcon,
+  VaultIcon,
+  SignalIcon,
+} from '@/components/icons';
+
 import { MoodEmoji } from '@/types/relationships';
 
 const { width } = Dimensions.get('window');
@@ -442,32 +452,44 @@ export default function CapsuleView({
 
       <View style={styles.zoneGrid}>
         <TouchableOpacity style={[styles.zoneCard, styles.zonePulse]} onPress={() => setActiveZone('pulse')}>
-          <Text style={styles.zoneIcon}>💓</Text>
+          <View style={styles.zoneIconContainer}>
+            <PulseIcon size={36} color="#EC4899" />
+          </View>
           <Text style={styles.zoneTitle}>Pulse</Text>
           <Text style={styles.zoneDesc}>Daily check-in</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.zoneCard, styles.zonePlan]} onPress={() => setActiveZone('plan')}>
-          <Text style={styles.zoneIcon}>💡</Text>
+          <View style={styles.zoneIconContainer}>
+            <PlanIcon size={36} color="#F59E0B" />
+          </View>
           <Text style={styles.zoneTitle}>Plan</Text>
           <Text style={styles.zoneDesc}>Ideas & brainstorm</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.zoneCard, styles.zoneDecide]} onPress={() => setActiveZone('decide')}>
-          <Text style={styles.zoneIcon}>��</Text>
+          <View style={styles.zoneIconContainer}>
+            <DecideIcon size={36} color="#10B981" />
+          </View>
           <Text style={styles.zoneTitle}>Decide</Text>
           <Text style={styles.zoneDesc}>Finalize together</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.zoneCard, styles.zoneResolve]} onPress={() => setActiveZone('resolve')}>
-          <Text style={styles.zoneIcon}>🤝</Text>
+          <View style={styles.zoneIconContainer}>
+            <ResolveIcon size={36} color="#8B5CF6" />
+          </View>
           <Text style={styles.zoneTitle}>Resolve</Text>
           <Text style={styles.zoneDesc}>Work through issues</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.zoneCard, styles.zoneVault]} onPress={() => setActiveZone('vault')}>
-          <Text style={styles.zoneIcon}>🔐</Text>
+          <View style={styles.zoneIconContainer}>
+            <VaultIcon size={36} color="#6366F1" />
+          </View>
           <Text style={styles.zoneTitle}>Vault</Text>
           <Text style={styles.zoneDesc}>Private storage</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.zoneCard, styles.zoneChat]} onPress={() => setActiveZone('chat')}>
-          <Text style={styles.zoneIcon}>💬</Text>
+          <View style={styles.zoneIconContainer}>
+            <SignalIcon size={36} color="#06B6D4" />
+          </View>
           <Text style={styles.zoneTitle}>Chat</Text>
           <Text style={styles.zoneDesc}>Quick messages</Text>
         </TouchableOpacity>
@@ -531,7 +553,7 @@ const styles = StyleSheet.create({
   zoneResolve: { backgroundColor: '#9b59b633' },
   zoneVault: { backgroundColor: '#27ae6033' },
   zoneChat: { backgroundColor: '#1abc9c33' },
-  zoneIcon: { fontSize: 32, marginBottom: 8 },
+  zoneIconContainer: { marginBottom: 8, alignItems: 'center', justifyContent: 'center' },
   zoneTitle: { fontSize: 16, fontWeight: '600', color: '#E0E0E0', marginBottom: 4 },
   zoneDesc: { fontSize: 12, color: '#888' },
   backButton: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#2A2A2A' },

@@ -34,6 +34,16 @@ import {
   ProfessionalModule,
 } from '../components/self';
 
+// Import custom icons
+import {
+  Daily3Icon,
+  MentalIcon,
+  PhysicalIcon,
+  EmotionalIcon,
+  PracticalIcon,
+  ProfessionalIcon,
+} from '../components/icons';
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TILE_GAP = 12;
 const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - TILE_GAP) / 2;
@@ -47,17 +57,17 @@ type TabType = 'daily3' | 'mental' | 'physical' | 'emotional' | 'practical' | 'p
 interface TileConfig {
   key: Exclude<TabType, null>;
   label: string;
-  icon: string;
+  IconComponent: React.ComponentType<{ size?: number; color?: string }>;
   color: string;
 }
 
 const TILES: TileConfig[] = [
-  { key: 'daily3', label: 'Daily 3', icon: '🎯', color: '#10B981' },
-  { key: 'mental', label: 'Mental', icon: '🧠', color: '#8B5CF6' },
-  { key: 'physical', label: 'Physical', icon: '💪', color: '#EF4444' },
-  { key: 'emotional', label: 'Emotional', icon: '💜', color: '#EC4899' },
-  { key: 'practical', label: 'Practical', icon: '🛠️', color: '#F59E0B' },
-  { key: 'professional', label: 'Professional', icon: '💼', color: '#3B82F6' },
+  { key: 'daily3', label: 'Daily 3', IconComponent: Daily3Icon, color: '#10B981' },
+  { key: 'mental', label: 'Mental', IconComponent: MentalIcon, color: '#8B5CF6' },
+  { key: 'physical', label: 'Physical', IconComponent: PhysicalIcon, color: '#EF4444' },
+  { key: 'emotional', label: 'Emotional', IconComponent: EmotionalIcon, color: '#EC4899' },
+  { key: 'practical', label: 'Practical', IconComponent: PracticalIcon, color: '#F59E0B' },
+  { key: 'professional', label: 'Professional', IconComponent: ProfessionalIcon, color: '#3B82F6' },
 ];
 
 // ============================================
@@ -72,6 +82,8 @@ interface TileProps {
 }
 
 function Tile({ config, index, onPress, colors }: TileProps) {
+  const { IconComponent } = config;
+  
   return (
     <Animated.View entering={FadeInUp.delay(50 + index * 50).duration(300)}>
       <TouchableOpacity
@@ -85,7 +97,9 @@ function Tile({ config, index, onPress, colors }: TileProps) {
         }}
         activeOpacity={0.7}
       >
-        <Text style={styles.tileIcon}>{config.icon}</Text>
+        <View style={styles.tileIconContainer}>
+          <IconComponent size={44} color={config.color} />
+        </View>
         <Text style={[styles.tileLabel, { color: config.color }]}>{config.label}</Text>
       </TouchableOpacity>
     </Animated.View>
@@ -333,9 +347,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.md,
   },
-  tileIcon: {
-    fontSize: 40,
+  tileIconContainer: {
     marginBottom: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tileLabel: {
     fontSize: 16,

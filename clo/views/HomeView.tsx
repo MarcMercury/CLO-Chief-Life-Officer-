@@ -44,6 +44,16 @@ import { usePropertyStore } from '@/store/propertyStore';
 import { HomeInventoryItem, Subscription, Vendor } from '@/types/homeos';
 import { useTheme } from '../providers/ThemeProvider';
 import { spacing, borderRadius } from '@/constants/theme';
+
+// Import custom icons
+import {
+  OverviewIcon,
+  InventoryIcon,
+  BillsIcon,
+  VendorsIcon,
+  ManualIcon,
+  AlertsIcon,
+} from '../components/icons';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TILE_GAP = 12;
 const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - TILE_GAP) / 2;
@@ -57,17 +67,17 @@ type TabType = 'overview' | 'inventory' | 'subscriptions' | 'vendors' | 'wiki' |
 interface TileConfig {
   key: Exclude<TabType, null>;
   label: string;
-  icon: string;
+  IconComponent: React.ComponentType<{ size?: number; color?: string }>;
   color: string;
 }
 
 const TILES: TileConfig[] = [
-  { key: 'overview', label: 'Overview', icon: '📊', color: '#10B981' },
-  { key: 'inventory', label: 'Inventory', icon: '📦', color: '#8B5CF6' },
-  { key: 'subscriptions', label: 'Bills', icon: '💳', color: '#F59E0B' },
-  { key: 'vendors', label: 'Vendors', icon: '👷', color: '#3B82F6' },
-  { key: 'wiki', label: 'Manual', icon: '📖', color: '#EC4899' },
-  { key: 'alerts', label: 'Alerts', icon: '🔔', color: '#EF4444' },
+  { key: 'overview', label: 'Overview', IconComponent: OverviewIcon, color: '#10B981' },
+  { key: 'inventory', label: 'Inventory', IconComponent: InventoryIcon, color: '#8B5CF6' },
+  { key: 'subscriptions', label: 'Bills', IconComponent: BillsIcon, color: '#F59E0B' },
+  { key: 'vendors', label: 'Vendors', IconComponent: VendorsIcon, color: '#3B82F6' },
+  { key: 'wiki', label: 'Manual', IconComponent: ManualIcon, color: '#EC4899' },
+  { key: 'alerts', label: 'Alerts', IconComponent: AlertsIcon, color: '#EF4444' },
 ];
 
 // Category icons
@@ -126,6 +136,7 @@ function Tile({ config, index, badge, onPress }: TileProps) {
   const { colors } = useTheme();
   const ACCENT = colors.home;
   const styles = React.useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  const { IconComponent } = config;
   
   return (
     <Animated.View entering={FadeInUp.delay(50 + index * 50).duration(300)}>
@@ -137,7 +148,9 @@ function Tile({ config, index, badge, onPress }: TileProps) {
         }}
         activeOpacity={0.7}
       >
-        <Text style={styles.tileIcon}>{config.icon}</Text>
+        <View style={styles.tileIconContainer}>
+          <IconComponent size={44} color={config.color} />
+        </View>
         <Text style={[styles.tileLabel, { color: config.color }]}>{config.label}</Text>
         {badge !== undefined && badge > 0 && (
           <View style={[styles.tileBadge, { backgroundColor: config.color }]}>
@@ -725,7 +738,9 @@ export default function HomeView() {
               <Text style={styles.backText}>← Back</Text>
             </TouchableOpacity>
             <View style={styles.moduleTitleContainer}>
-              <Text style={styles.moduleHeaderIcon}>{config.icon}</Text>
+              <View style={styles.moduleHeaderIconContainer}>
+                <config.IconComponent size={28} color={config.color} />
+              </View>
               <Text style={[styles.moduleTitle, { color: config.color }]}>{config.label}</Text>
             </View>
             <View style={styles.headerSpacer} />
@@ -863,9 +878,10 @@ const createStyles = (colors: any, ACCENT: string) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
-  tileIcon: {
-    fontSize: 36,
+  tileIconContainer: {
     marginBottom: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tileLabel: {
     fontSize: 16,
@@ -914,8 +930,9 @@ const createStyles = (colors: any, ACCENT: string) => StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  moduleHeaderIcon: {
-    fontSize: 24,
+  moduleHeaderIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   moduleTitle: {
     fontSize: 18,

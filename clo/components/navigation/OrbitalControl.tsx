@@ -13,6 +13,7 @@ import { useRouter, usePathname } from 'expo-router';
 import haptics from '@/lib/haptics';
 import { useUIStore, ActiveCircle } from '../../store/uiStore';
 import { useTheme } from '@/providers/ThemeProvider';
+import { NestIcon, SelfNavIcon, HomeNavIcon, RelationshipNavIcon } from '@/components/icons';
 
 const SWIPE_THRESHOLD = 40;
 const ORB_SIZE = 48;
@@ -108,13 +109,18 @@ export default function OrbitalControl() {
     ],
   }));
   
-  // Get indicator for current circle
-  const getCircleIndicator = () => {
+  // Get icon for current circle
+  const renderCircleIcon = () => {
+    const iconSize = 28;
     switch (activeCircle) {
-      case 'SELF': return '●';
-      case 'RELATIONSHIPS': return '●●';
-      case 'HOME': return '▲';
-      default: return '◯';
+      case 'SELF': 
+        return <SelfNavIcon size={iconSize} color={colors.self} />;
+      case 'RELATIONSHIPS': 
+        return <RelationshipNavIcon size={iconSize} color={colors.relationships} />;
+      case 'HOME': 
+        return <HomeNavIcon size={iconSize} color={colors.home} />;
+      default: 
+        return <NestIcon size={iconSize} color={circleAccent} />;
     }
   };
 
@@ -223,9 +229,7 @@ export default function OrbitalControl() {
             { borderColor: circleAccent }
           ]}
         >
-          <Text style={[styles.orbText, { color: circleAccent }]}>
-            {getCircleIndicator()}
-          </Text>
+          {renderCircleIcon()}
         </Animated.View>
       </GestureDetector>
     </View>
