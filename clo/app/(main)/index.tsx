@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, memo } from 'react';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { useUIStore } from '../../store/uiStore';
+import { useTheme } from '../../providers/ThemeProvider';
 
 // Lazy load views for faster initial render
 const DashboardView = lazy(() => import('../../views/DashboardView'));
@@ -8,11 +9,14 @@ const SelfView = lazy(() => import('../../views/SelfView'));
 const RelationshipsView = lazy(() => import('../../views/RelationshipsView'));
 const HomeView = lazy(() => import('../../views/HomeView'));
 
-const LoadingFallback = () => (
-  <View style={styles.loading}>
-    <ActivityIndicator size="large" color="#4169E1" />
-  </View>
-);
+const LoadingFallback = () => {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.loading, { backgroundColor: colors.background }]}>
+      <ActivityIndicator size="large" color={colors.dashboard} />
+    </View>
+  );
+};
 
 function MainScreen() {
   const { activeCircle } = useUIStore();
@@ -50,6 +54,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#121212',
   },
 });

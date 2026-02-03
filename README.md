@@ -153,10 +153,26 @@ clo/
 
 | Document | Description |
 |----------|-------------|
+| [agent.md](agent.md) | AI assistant behavioral protocols with pre/post implementation |
 | [clo/README.md](clo/README.md) | Complete project documentation |
-| [agent.md](agent.md) | AI assistant behavioral protocols |
 | [clo/DEVELOPMENT_PHASES.md](clo/DEVELOPMENT_PHASES.md) | Phase-by-phase build guide |
 | [clo/QUICK_START.md](clo/QUICK_START.md) | How to run and test |
+
+### Project Management
+
+| Folder | Purpose |
+|--------|---------|
+| [.credentials/](.credentials/) | Credential templates and setup guides (actual creds in .env) |
+| [.audit/](.audit/) | Code quality, tech debt, decisions, and checklists |
+
+### Audit Resources
+
+| Document | Description |
+|----------|-------------|
+| [.audit/CHANGELOG.md](.audit/CHANGELOG.md) | All project changes |
+| [.audit/TECH_DEBT.md](.audit/TECH_DEBT.md) | Known technical debt |
+| [.audit/CODE_REVIEW.md](.audit/CODE_REVIEW.md) | Patterns and anti-patterns |
+| [.audit/decisions/](.audit/decisions/) | Architecture Decision Records |
 
 ---
 

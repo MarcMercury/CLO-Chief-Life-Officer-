@@ -58,6 +58,7 @@ export interface Book {
   title: string;
   author?: string;
   status: 'to_read' | 'reading' | 'completed';
+  progress?: number; // 0-100 reading progress
   rating?: number;
   notes?: string;
   completed_at?: string;
@@ -301,10 +302,16 @@ export async function updateBookStatus(id: string, status: Book['status']): Prom
 
 export async function updateBook(
   id: string, 
-  updates: { title?: string; author?: string; notes?: string; rating?: number }
+  updates: { title?: string; author?: string; notes?: string; rating?: number; progress?: number; status?: Book['status'] }
 ): Promise<void> {
+  // If progress is 100, auto-set completed_at
+  const finalUpdates: any = { ...updates, updated_at: new Date().toISOString() };
+  if (updates.progress === 100 || updates.status === 'completed') {
+    finalUpdates.completed_at = new Date().toISOString();
+  }
+  
   const { error } = await from('read_list')
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(finalUpdates)
     .eq('id', id);
   if (error) throw new Error(error.message);
 }

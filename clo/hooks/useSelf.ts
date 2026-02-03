@@ -140,7 +140,7 @@ export function useUpdateBook() {
   return useMutation({
     mutationFn: ({ id, updates }: { 
       id: string; 
-      updates: { title?: string; author?: string; notes?: string; rating?: number } 
+      updates: { title?: string; author?: string; notes?: string; rating?: number; progress?: number; status?: selfService.Book['status'] } 
     }) => selfService.updateBook(id, updates),
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

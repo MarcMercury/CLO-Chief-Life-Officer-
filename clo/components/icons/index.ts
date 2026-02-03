@@ -7,6 +7,10 @@
 
 // Self Section Icons
 export { default as Daily3Icon } from './self/Daily3Icon';
+export { default as MindIcon } from './self/MindIcon';
+export { default as BodyIcon } from './self/BodyIcon';
+export { default as SoulIcon } from './self/SoulIcon';
+// Legacy icons (kept for backwards compatibility)
 export { default as MentalIcon } from './self/MentalIcon';
 export { default as PhysicalIcon } from './self/PhysicalIcon';
 export { default as EmotionalIcon } from './self/EmotionalIcon';

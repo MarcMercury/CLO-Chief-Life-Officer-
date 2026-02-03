@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native builds
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.kotlin/
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# Environment & Credentials
+.env
+.env*.local
+.credentials/*.json
+.credentials/*.env
+.credentials/**/*.json
+!.credentials/**/*.template
+!.credentials/**/README.md
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/settings.json
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+
+# Audit (keep structure, ignore sensitive reports if any)
+# Note: Most audit files should be committed for transparency

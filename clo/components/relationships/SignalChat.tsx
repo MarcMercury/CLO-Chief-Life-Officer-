@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useTheme } from '@/providers/ThemeProvider';
 
 interface Message {
   id: string;
@@ -34,6 +35,10 @@ export default function SignalChat({
   currentUserId,
   loading,
 }: SignalChatProps) {
+  const { colors } = useTheme();
+  const ACCENT = colors.relationships;
+  const styles = React.useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
@@ -146,24 +151,24 @@ export default function SignalChat({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, ACCENT: string) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: colors.background,
   },
   header: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#E0E0E0',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textTertiary,
     marginTop: 2,
   },
   messageList: {
@@ -178,9 +183,9 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   dateText: {
-    color: '#666',
+    color: colors.textTertiary,
     fontSize: 12,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -198,29 +203,29 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   bubbleMe: {
-    backgroundColor: '#e17055',
+    backgroundColor: ACCENT,
     borderBottomRightRadius: 4,
   },
   bubbleThem: {
-    backgroundColor: '#2A2A2A',
+    backgroundColor: colors.surfaceElevated,
     borderBottomLeftRadius: 4,
   },
   messageText: {
-    color: '#E0E0E0',
+    color: colors.textPrimary,
     fontSize: 15,
     lineHeight: 20,
   },
   messageTextMe: {
-    color: '#FFF',
+    color: colors.background,
   },
   messageTime: {
-    color: '#888',
+    color: colors.textSecondary,
     fontSize: 10,
     marginTop: 4,
     alignSelf: 'flex-end',
   },
   messageTimeMe: {
-    color: 'rgba(255,255,255,0.7)',
+    color: `${colors.background}B0`,
   },
   emptyContainer: {
     flex: 1,
@@ -229,11 +234,11 @@ const styles = StyleSheet.create({
     paddingTop: 80,
   },
   emptyText: {
-    color: '#666',
+    color: colors.textTertiary,
     fontSize: 16,
   },
   emptySubtext: {
-    color: '#444',
+    color: colors.textTertiary,
     fontSize: 13,
     marginTop: 4,
   },
@@ -243,16 +248,16 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#2A2A2A',
-    backgroundColor: '#1E1E1E',
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
   input: {
     flex: 1,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    color: '#E0E0E0',
+    color: colors.textPrimary,
     fontSize: 15,
     maxHeight: 100,
   },
@@ -260,15 +265,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#e17055',
+    backgroundColor: ACCENT,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#444',
+    backgroundColor: colors.surfaceElevated,
   },
   sendButtonText: {
-    color: '#FFF',
+    color: colors.background,
     fontSize: 20,
     fontWeight: '600',
   },

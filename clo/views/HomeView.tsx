@@ -2,7 +2,7 @@
  * HomeView - Tile-Based Home Management
  * 
  * Clean tile navigation that expands to full screen when selected.
- * Tiles: Overview, Inventory, Bills, Vendors, Manual, Alerts
+ * Tiles: Overview, Inventory, Vendors, Manual
  */
 
 import React, { useState, useCallback } from 'react';
@@ -28,20 +28,17 @@ import Animated, {
   SlideOutRight,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { AddInventoryModal, AddSubscriptionModal, AddVendorModal, AddWikiModal, PropertySelector } from '../components/home';
+import { AddInventoryModal, AddVendorModal, AddWikiModal, PropertySelector } from '../components/home';
 import { WikiEntry } from '../components/home/AddWikiModal';
 import { 
   useInventory, 
-  useSubscriptions, 
   useVendors,
   useServiceLogs,
-  useMaintenanceSchedules,
-  useHomeAlerts,
   useProperties,
   useCreateProperty,
 } from '@/hooks/useHomeOS';
 import { usePropertyStore } from '@/store/propertyStore';
-import { HomeInventoryItem, Subscription, Vendor } from '@/types/homeos';
+import { HomeInventoryItem, Vendor } from '@/types/homeos';
 import { useTheme } from '../providers/ThemeProvider';
 import { spacing, borderRadius } from '@/constants/theme';
 
@@ -49,10 +46,8 @@ import { spacing, borderRadius } from '@/constants/theme';
 import {
   OverviewIcon,
   InventoryIcon,
-  BillsIcon,
   VendorsIcon,
   ManualIcon,
-  AlertsIcon,
 } from '../components/icons';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TILE_GAP = 12;
@@ -62,7 +57,7 @@ const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - TILE_GAP) / 2;
 // TYPES & CONFIGURATION
 // ============================================
 
-type TabType = 'overview' | 'inventory' | 'subscriptions' | 'vendors' | 'wiki' | 'alerts' | null;
+type TabType = 'overview' | 'inventory' | 'vendors' | 'wiki' | null;
 
 interface TileConfig {
   key: Exclude<TabType, null>;
@@ -72,12 +67,10 @@ interface TileConfig {
 }
 
 const TILES: TileConfig[] = [
-  { key: 'overview', label: 'Overview', IconComponent: OverviewIcon, color: '#10B981' },
-  { key: 'inventory', label: 'Inventory', IconComponent: InventoryIcon, color: '#8B5CF6' },
-  { key: 'subscriptions', label: 'Bills', IconComponent: BillsIcon, color: '#F59E0B' },
-  { key: 'vendors', label: 'Vendors', IconComponent: VendorsIcon, color: '#3B82F6' },
-  { key: 'wiki', label: 'Manual', IconComponent: ManualIcon, color: '#EC4899' },
-  { key: 'alerts', label: 'Alerts', IconComponent: AlertsIcon, color: '#EF4444' },
+  { key: 'overview', label: 'Overview', IconComponent: OverviewIcon, color: '#6FC98B' },
+  { key: 'inventory', label: 'Inventory', IconComponent: InventoryIcon, color: '#8B8FD9' },
+  { key: 'vendors', label: 'Vendors', IconComponent: VendorsIcon, color: '#D49A8A' },
+  { key: 'wiki', label: 'Manual', IconComponent: ManualIcon, color: '#A68BD9' },
 ];
 
 // Category icons
@@ -174,7 +167,6 @@ export default function HomeView() {
   
   const [activeTab, setActiveTab] = useState<TabType>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addModalType, setAddModalType] = useState<'inventory' | 'subscription'>('inventory');
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showWikiModal, setShowWikiModal] = useState(false);
   const [editingWikiEntry, setEditingWikiEntry] = useState<WikiEntry | null>(null);
@@ -183,72 +175,35 @@ export default function HomeView() {
   
   // Edit mode state
   const [editingInventoryItem, setEditingInventoryItem] = useState<HomeInventoryItem | null>(null);
-  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   
   // Fetch data
   const { data: inventory = [], isLoading: loadingInventory } = useInventory();
-  const { data: subscriptions = [], isLoading: loadingSubs } = useSubscriptions();
   const { data: vendors = [], isLoading: loadingVendors } = useVendors();
   const { data: serviceLogs = [] } = useServiceLogs();
-  const { data: maintenanceSchedules = [] } = useMaintenanceSchedules();
 
-  const isLoading = loadingInventory || loadingSubs || loadingVendors;
+  const isLoading = loadingInventory || loadingVendors;
 
   // Calculate stats
   const inventoryCount = inventory.length;
-  const subscriptionCount = subscriptions.filter(s => s.is_active).length;
-  const monthlySpend = subscriptions
-    .filter(s => s.is_active)
-    .reduce((total, sub) => {
-      const cost = sub.cost || 0;
-      switch (sub.frequency) {
-        case 'monthly': return total + cost;
-        case 'quarterly': return total + (cost / 3);
-        case 'annual': return total + (cost / 12);
-        default: return total + cost;
-      }
-    }, 0);
+  const totalValue = inventory.reduce((sum, i) => sum + (i.purchase_price || 0), 0);
 
-  // Alerts calculation
+  // Warranty alerts calculation
   const expiringWarranties = inventory.filter(item => {
     if (!item.warranty_expires) return false;
     const days = Math.ceil((new Date(item.warranty_expires).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return days > 0 && days <= 30;
   });
 
-  const upcomingBills = subscriptions.filter(sub => {
-    if (!sub.next_billing_date || !sub.is_active) return false;
-    const days = Math.ceil((new Date(sub.next_billing_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return days >= 0 && days <= 7;
-  });
-
-  const overdueMaintenance = maintenanceSchedules.filter(m => {
-    if (!m.next_due) return false;
-    return new Date(m.next_due) < new Date();
-  });
-
-  const totalAlerts = expiringWarranties.length + upcomingBills.length + overdueMaintenance.length;
-
   // Handlers
-  const openAddModal = useCallback((type: 'inventory' | 'subscription') => {
-    setAddModalType(type);
+  const openAddModal = useCallback(() => {
     setEditingInventoryItem(null);
-    setEditingSubscription(null);
     setShowAddModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
   const openEditInventoryModal = useCallback((item: HomeInventoryItem) => {
-    setAddModalType('inventory');
     setEditingInventoryItem(item);
-    setShowAddModal(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
-
-  const openEditSubscriptionModal = useCallback((sub: Subscription) => {
-    setAddModalType('subscription');
-    setEditingSubscription(sub);
     setShowAddModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
@@ -262,7 +217,6 @@ export default function HomeView() {
   const closeAddModal = useCallback(() => {
     setShowAddModal(false);
     setEditingInventoryItem(null);
-    setEditingSubscription(null);
   }, []);
 
   const closeVendorModal = useCallback(() => {
@@ -273,23 +227,6 @@ export default function HomeView() {
   const handleCall = useCallback((phone: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Linking.openURL(`tel:${phone}`);
-  }, []);
-
-  const handleCancelSubscription = useCallback((sub: any) => {
-    Alert.alert(
-      'Cancel Subscription',
-      `Generate a cancellation letter for ${sub.name}?`,
-      [
-        { text: 'Not Now', style: 'cancel' },
-        { 
-          text: 'Generate Letter', 
-          onPress: () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Coming Soon', 'AI cancellation letter generation will be available soon!');
-          }
-        },
-      ]
-    );
   }, []);
 
   const openVendorModal = useCallback(() => {
@@ -344,10 +281,6 @@ export default function HomeView() {
     item.brand?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredSubscriptions = subscriptions.filter(sub =>
-    !searchQuery || sub.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const filteredVendors = vendors.filter(v =>
     !searchQuery || 
     v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -367,35 +300,32 @@ export default function HomeView() {
           <Text style={styles.statValue}>{inventoryCount}</Text>
           <Text style={styles.statLabel}>Assets</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('subscriptions')}>
-          <Text style={styles.statIcon}>💳</Text>
-          <Text style={styles.statValue}>${monthlySpend.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Monthly Bills</Text>
+        <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('inventory')}>
+          <Text style={styles.statIcon}>💰</Text>
+          <Text style={styles.statValue}>${totalValue.toLocaleString()}</Text>
+          <Text style={styles.statLabel}>Total Value</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('vendors')}>
           <Text style={styles.statIcon}>👷</Text>
           <Text style={styles.statValue}>{vendors.length}</Text>
           <Text style={styles.statLabel}>Vendors</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('alerts')}>
-          <Text style={styles.statIcon}>🔔</Text>
-          <Text style={[styles.statValue, totalAlerts > 0 && styles.alertValue]}>{totalAlerts}</Text>
-          <Text style={styles.statLabel}>Alerts</Text>
+        <TouchableOpacity style={styles.statCard} onPress={() => setActiveTab('wiki')}>
+          <Text style={styles.statIcon}>📖</Text>
+          <Text style={styles.statValue}>{wikiEntries.length}</Text>
+          <Text style={styles.statLabel}>Manual Entries</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Alert Summary */}
-      {totalAlerts > 0 && (
+      {/* Warranty Alert Summary */}
+      {expiringWarranties.length > 0 && (
         <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.alertCard}>
-          <Text style={styles.alertCardTitle}>⚠️ Needs Attention</Text>
-          {expiringWarranties.length > 0 && (
-            <Text style={styles.alertItem}>• {expiringWarranties.length} warranty expiring soon</Text>
-          )}
-          {upcomingBills.length > 0 && (
-            <Text style={styles.alertItem}>• {upcomingBills.length} bill due this week</Text>
-          )}
-          {overdueMaintenance.length > 0 && (
-            <Text style={styles.alertItem}>• {overdueMaintenance.length} maintenance overdue</Text>
+          <Text style={styles.alertCardTitle}>🛡️ Warranties Expiring Soon</Text>
+          {expiringWarranties.slice(0, 3).map((item, i) => (
+            <Text key={item.id} style={styles.alertItem}>• {item.name} - {formatDate(item.warranty_expires!)}</Text>
+          ))}
+          {expiringWarranties.length > 3 && (
+            <Text style={styles.alertItem}>...and {expiringWarranties.length - 3} more</Text>
           )}
         </Animated.View>
       )}
@@ -428,11 +358,11 @@ export default function HomeView() {
         <TextInput
           style={styles.searchInput}
           placeholder="Search inventory..."
-          placeholderTextColor="#666"
+          placeholderTextColor={colors.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        <TouchableOpacity style={styles.addBtn} onPress={() => openAddModal('inventory')}>
+        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -483,71 +413,11 @@ export default function HomeView() {
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>📦</Text>
           <Text style={styles.emptyTitle}>No items found</Text>
-          <TouchableOpacity onPress={() => openAddModal('inventory')}>
+          <TouchableOpacity onPress={openAddModal}>
             <Text style={styles.emptyAction}>Add your first item</Text>
           </TouchableOpacity>
         </View>
       )}
-    </Animated.View>
-  );
-
-  const renderSubscriptions = () => (
-    <Animated.View entering={FadeIn.duration(300)}>
-      <View style={styles.searchRow}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search subscriptions..."
-          placeholderTextColor="#666"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        <TouchableOpacity style={styles.addBtn} onPress={() => openAddModal('subscription')}>
-          <Text style={styles.addBtnText}>+ Add</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.burnCard}>
-        <Text style={styles.burnLabel}>Monthly Spend</Text>
-        <Text style={styles.burnValue}>${monthlySpend.toFixed(2)}</Text>
-        <Text style={styles.burnSub}>{subscriptionCount} active subscriptions</Text>
-      </View>
-
-      {filteredSubscriptions.map((sub, i) => {
-        const daysUntil = sub.next_billing_date 
-          ? Math.ceil((new Date(sub.next_billing_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-          : null;
-
-        return (
-          <Animated.View key={sub.id} entering={FadeInUp.delay(i * 30).duration(300)}>
-            <TouchableOpacity 
-              style={[styles.listCard, !sub.is_active && styles.cancelledCard]}
-              onPress={() => openEditSubscriptionModal(sub)}
-              onLongPress={() => handleCancelSubscription(sub)}
-            >
-              <View style={styles.listIcon}>
-                <Text style={styles.listEmoji}>💳</Text>
-              </View>
-              <View style={styles.listInfo}>
-                <Text style={styles.listTitle}>{sub.name}</Text>
-                <Text style={styles.listSub}>
-                  {sub.category || 'Subscription'}
-                  {daysUntil !== null && daysUntil <= 7 && daysUntil >= 0 && (
-                    <Text style={styles.renewWarning}> • Renews in {daysUntil}d</Text>
-                  )}
-                </Text>
-                {!sub.is_active && <Text style={styles.cancelledBadge}>Cancelled</Text>}
-              </View>
-              <View style={styles.costColumn}>
-                <Text style={styles.costAmount}>${sub.cost?.toFixed(2)}</Text>
-                <Text style={styles.costPeriod}>/{sub.frequency?.[0]}</Text>
-              </View>
-              <Text style={styles.editHint}>✏️</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        );
-      })}
-
-      <Text style={styles.tipText}>💡 Tap to edit • Long press for cancellation letter</Text>
     </Animated.View>
   );
 
@@ -557,7 +427,7 @@ export default function HomeView() {
         <TextInput
           style={[styles.searchInput, { flex: 1 }]}
           placeholder="Search vendors..."
-          placeholderTextColor="#666"
+          placeholderTextColor={colors.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -651,70 +521,12 @@ export default function HomeView() {
     </Animated.View>
   );
 
-  const renderAlerts = () => (
-    <Animated.View entering={FadeIn.duration(300)}>
-      {totalAlerts === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>✅</Text>
-          <Text style={styles.emptyTitle}>All clear!</Text>
-          <Text style={styles.emptyText}>No alerts at this time</Text>
-        </View>
-      ) : (
-        <>
-          {expiringWarranties.length > 0 && (
-            <View style={styles.alertSection}>
-              <Text style={styles.alertSectionTitle}>🛡️ Warranties Expiring Soon</Text>
-              {expiringWarranties.map((item, i) => (
-                <Animated.View key={item.id} entering={FadeInRight.delay(i * 50).duration(300)}>
-                  <View style={styles.alertRow}>
-                    <Text style={styles.alertName}>{item.name}</Text>
-                    <Text style={styles.alertDate}>{formatDate(item.warranty_expires!)}</Text>
-                  </View>
-                </Animated.View>
-              ))}
-            </View>
-          )}
-
-          {upcomingBills.length > 0 && (
-            <View style={styles.alertSection}>
-              <Text style={styles.alertSectionTitle}>💳 Bills Due This Week</Text>
-              {upcomingBills.map((sub, i) => (
-                <Animated.View key={sub.id} entering={FadeInRight.delay(i * 50).duration(300)}>
-                  <View style={styles.alertRow}>
-                    <Text style={styles.alertName}>{sub.name}</Text>
-                    <Text style={styles.alertAmount}>${sub.cost}</Text>
-                  </View>
-                </Animated.View>
-              ))}
-            </View>
-          )}
-
-          {overdueMaintenance.length > 0 && (
-            <View style={styles.alertSection}>
-              <Text style={styles.alertSectionTitle}>🔧 Maintenance Overdue</Text>
-              {overdueMaintenance.map((m, i) => (
-                <Animated.View key={m.id} entering={FadeInRight.delay(i * 50).duration(300)}>
-                  <View style={styles.alertRow}>
-                    <Text style={styles.alertName}>{m.task_name}</Text>
-                    <Text style={styles.alertDate}>{formatDate(m.next_due!)}</Text>
-                  </View>
-                </Animated.View>
-              ))}
-            </View>
-          )}
-        </>
-      )}
-    </Animated.View>
-  );
-
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview': return renderOverview();
       case 'inventory': return renderInventory();
-      case 'subscriptions': return renderSubscriptions();
       case 'vendors': return renderVendors();
       case 'wiki': return renderWiki();
-      case 'alerts': return renderAlerts();
       default: return null;
     }
   };
@@ -763,8 +575,7 @@ export default function HomeView() {
         </Animated.View>
 
         {/* Modals */}
-        <AddInventoryModal visible={showAddModal && addModalType === 'inventory'} onClose={closeAddModal} editItem={editingInventoryItem} />
-        <AddSubscriptionModal visible={showAddModal && addModalType === 'subscription'} onClose={closeAddModal} editItem={editingSubscription} />
+        <AddInventoryModal visible={showAddModal} onClose={closeAddModal} editItem={editingInventoryItem} />
         <AddVendorModal visible={showVendorModal} onClose={closeVendorModal} editItem={editingVendor} />
         <AddWikiModal visible={showWikiModal} onClose={closeWikiModal} onSave={handleAddWikiEntry} onUpdate={handleUpdateWikiEntry} onDelete={handleDeleteWikiEntry} editEntry={editingWikiEntry} />
       </View>
@@ -797,7 +608,6 @@ export default function HomeView() {
               key={tile.key}
               config={tile}
               index={index}
-              badge={tile.key === 'alerts' ? totalAlerts : undefined}
               onPress={() => {
                 Haptics.selectionAsync();
                 setActiveTab(tile.key);
@@ -810,8 +620,7 @@ export default function HomeView() {
       </ScrollView>
 
       {/* Modals */}
-      <AddInventoryModal visible={showAddModal && addModalType === 'inventory'} onClose={closeAddModal} editItem={editingInventoryItem} />
-      <AddSubscriptionModal visible={showAddModal && addModalType === 'subscription'} onClose={closeAddModal} editItem={editingSubscription} />
+      <AddInventoryModal visible={showAddModal} onClose={closeAddModal} editItem={editingInventoryItem} />
       <AddVendorModal visible={showVendorModal} onClose={closeVendorModal} editItem={editingVendor} />
       <AddWikiModal visible={showWikiModal} onClose={closeWikiModal} onSave={handleAddWikiEntry} onUpdate={handleUpdateWikiEntry} onDelete={handleDeleteWikiEntry} editEntry={editingWikiEntry} />
     </View>

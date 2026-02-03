@@ -5,20 +5,24 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCapsules, useJoinCapsule } from '../hooks/useCapsules';
 import InvitePartnerModal from '../components/relationships/InvitePartnerModal';
-
-const NEST_WARM = '#D4A574'; // Warm wood/straw color
+import { useTheme } from '../providers/ThemeProvider';
+import { spacing, borderRadius } from '../constants/theme';
 
 const getHealthColor = (status: string) => {
   switch (status) {
-    case 'thriving': return '#22c55e';
-    case 'healthy': return '#84cc16';
-    case 'needs_attention': return '#eab308';
-    case 'at_risk': return '#ef4444';
-    default: return '#666';
+    case 'thriving': return '#6FC98B';
+    case 'healthy': return '#8FC96F';
+    case 'needs_attention': return '#D9B860';
+    case 'at_risk': return '#D98B8B';
+    default: return '#7A756B';
   }
 };
 
 export default function RelationshipsView() {
+  const { colors } = useTheme();
+  const ACCENT = colors.relationships;
+  const styles = React.useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  
   const [isInviteModalVisible, setIsInviteModalVisible] = useState(false);
   const [isJoinModalVisible, setIsJoinModalVisible] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
@@ -80,7 +84,7 @@ export default function RelationshipsView() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={NEST_WARM} />
+            <ActivityIndicator size="large" color={ACCENT} />
           </View>
         ) : nests && nests.length > 0 ? (
           <Animated.View entering={FadeIn.duration(300)} style={styles.nestList}>
@@ -263,6 +267,10 @@ interface NestCardProps {
 }
 
 function NestCard({ nest, index, onPress }: NestCardProps) {
+  const { colors } = useTheme();
+  const ACCENT = colors.relationships;
+  const styles = React.useMemo(() => createStyles(colors, ACCENT), [colors, ACCENT]);
+  
   const partner = nest.partner;
   const health = nest.relationship_health;
   const isPending = nest.status === 'pending';
@@ -330,9 +338,14 @@ function NestCard({ nest, index, onPress }: NestCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+// ============================================
+// STYLES FACTORY
+// ============================================
+
+const createStyles = (colors: any, ACCENT: string) => StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 24,
@@ -350,12 +363,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '300',
-    color: NEST_WARM,
+    color: ACCENT,
     letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: '#888',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   scrollView: {
@@ -363,7 +376,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 160, // Extra space for orbital control
+    paddingBottom: 160,
   },
   loadingContainer: {
     flex: 1,
@@ -383,7 +396,7 @@ const styles = StyleSheet.create({
   },
   nestCount: {
     fontSize: 15,
-    color: '#888',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   headerButtons: {
@@ -395,16 +408,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: `${NEST_WARM}50`,
+    borderColor: `${ACCENT}50`,
     backgroundColor: 'transparent',
   },
   joinCodeButtonText: {
     fontSize: 13,
     fontWeight: '500',
-    color: NEST_WARM,
+    color: ACCENT,
   },
   addButton: {
-    backgroundColor: `${NEST_WARM}20`,
+    backgroundColor: `${ACCENT}20`,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
@@ -412,19 +425,19 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: NEST_WARM,
+    color: ACCENT,
   },
   
   // Nest card styles
   nestCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(212, 165, 116, 0.08)',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(212, 165, 116, 0.15)',
+    borderColor: colors.border,
   },
   nestIconContainer: {
     marginRight: 14,
@@ -450,11 +463,11 @@ const styles = StyleSheet.create({
   nestName: {
     fontSize: 18,
     fontWeight: '500',
-    color: '#E8E8E8',
+    color: colors.textPrimary,
     flex: 1,
   },
   pendingBadge: {
-    backgroundColor: '#666',
+    backgroundColor: colors.surfaceElevated,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -462,7 +475,7 @@ const styles = StyleSheet.create({
   pendingText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#ccc',
+    color: colors.textSecondary,
   },
   nestStatusRow: {
     flexDirection: 'row',
@@ -477,19 +490,19 @@ const styles = StyleSheet.create({
   },
   nestStatus: {
     fontSize: 13,
-    color: '#888',
+    color: colors.textSecondary,
   },
   enterArrow: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: `${NEST_WARM}15`,
+    backgroundColor: `${ACCENT}15`,
     alignItems: 'center',
     justifyContent: 'center',
   },
   arrowText: {
     fontSize: 18,
-    color: NEST_WARM,
+    color: ACCENT,
     fontWeight: '300',
   },
   
@@ -521,13 +534,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 24,
     fontWeight: '400',
-    color: NEST_WARM,
+    color: ACCENT,
     marginBottom: 12,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#888',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 32,
@@ -542,7 +555,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(212, 165, 116, 0.06)',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     marginBottom: 8,
   },
@@ -552,17 +565,17 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 15,
-    color: '#ccc',
+    color: colors.textPrimary,
   },
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: NEST_WARM,
+    backgroundColor: ACCENT,
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 28,
     gap: 10,
-    shadowColor: NEST_WARM,
+    shadowColor: ACCENT,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -574,7 +587,7 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.background,
   },
   
   // Or divider
@@ -588,10 +601,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colors.border,
   },
   orText: {
-    color: '#666',
+    color: colors.textTertiary,
     fontSize: 14,
     marginHorizontal: 16,
   },
@@ -602,32 +615,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: NEST_WARM,
+    borderColor: ACCENT,
     backgroundColor: 'transparent',
   },
   joinButtonText: {
     fontSize: 15,
     fontWeight: '500',
-    color: NEST_WARM,
+    color: ACCENT,
   },
   
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalContent: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 32,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(212, 165, 116, 0.2)',
+    borderColor: colors.borderLight,
   },
   modalEmoji: {
     fontSize: 48,
@@ -636,29 +649,29 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: '600',
-    color: '#E8E8E8',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#888',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
   },
   codeInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 24,
     fontSize: 24,
     fontWeight: '600',
-    color: '#E8E8E8',
+    color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 4,
     width: '100%',
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(212, 165, 116, 0.2)',
+    borderColor: colors.border,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -669,19 +682,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#888',
+    color: colors.textSecondary,
   },
   submitButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 20,
-    backgroundColor: NEST_WARM,
+    backgroundColor: ACCENT,
     alignItems: 'center',
   },
   submitButtonDisabled: {
@@ -690,6 +703,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.background,
   },
 });

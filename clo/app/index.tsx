@@ -4,9 +4,11 @@ import { useRouter, SplashScreen } from 'expo-router';
 import { useAuth } from '@/providers/AuthProvider';
 import LoginScreen from '@/components/auth/LoginScreen';
 import LockScreen from '@/components/auth/LockScreen';
+import { useTheme } from '@/providers/ThemeProvider';
 
 export default function Index() {
   const { user, loading, isLocked } = useAuth();
+  const { colors } = useTheme();
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
 
@@ -33,8 +35,8 @@ export default function Index() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#6366f1" />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.self} />
       </View>
     );
   }
@@ -49,8 +51,8 @@ export default function Index() {
 
   // User exists but navigating to main - show brief loading
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#6366f1" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ActivityIndicator size="large" color={colors.self} />
     </View>
   );
 }
@@ -58,7 +60,6 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -67,39 +67,45 @@ export interface Theme {
 // THEME DEFINITIONS
 // ============================================
 
-// Dark Theme - Pure dark mode
+// Dark Theme - Soft, Kindle-like reading experience
+// Warm sepia-tinted dark mode that's easy on the eyes
 const darkColors: ThemeColors = {
-  background: '#121212',
-  surface: '#1E1E1E',
-  surfaceElevated: '#252525',
+  // Warm, soft backgrounds (sepia-tinted for reading comfort)
+  background: '#1C1915',      // Warm charcoal with brown undertone
+  surface: '#252219',         // Soft brown-gray surface
+  surfaceElevated: '#2D2A24', // Elevated warm surface
   
-  textPrimary: '#E0E0E0',
-  textSecondary: '#A0A0A0',
-  textTertiary: '#666666',
-  textMuted: '#4A4A4A',
+  // Cream-tinted text for less eye strain
+  textPrimary: '#E8E4DC',     // Warm cream (like paper)
+  textSecondary: '#B8B2A6',   // Soft taupe
+  textTertiary: '#7A756B',    // Muted warm gray
+  textMuted: '#5A564F',       // Deeper muted tone
   
-  border: 'rgba(255, 255, 255, 0.05)',
-  borderLight: 'rgba(255, 255, 255, 0.08)',
-  borderFocus: 'rgba(255, 255, 255, 0.15)',
+  // Subtle warm borders
+  border: 'rgba(232, 228, 220, 0.06)',
+  borderLight: 'rgba(232, 228, 220, 0.10)',
+  borderFocus: 'rgba(232, 228, 220, 0.18)',
   
-  self: '#6366f1',
-  relationships: '#e17055',
-  home: '#84a98c',
-  dashboard: '#8b5cf6',
+  // Circle accents - softer, more muted versions
+  self: '#8B8FD9',            // Soft periwinkle
+  relationships: '#D49A8A',   // Soft terracotta
+  home: '#8FB896',            // Soft sage
+  dashboard: '#A68BD9',       // Soft lavender
   
-  selfBg: 'rgba(99, 102, 241, 0.15)',
-  relationshipsBg: 'rgba(225, 112, 85, 0.15)',
-  homeBg: 'rgba(132, 169, 140, 0.15)',
-  dashboardBg: 'rgba(139, 92, 246, 0.15)',
+  selfBg: 'rgba(139, 143, 217, 0.12)',
+  relationshipsBg: 'rgba(212, 154, 138, 0.12)',
+  homeBg: 'rgba(143, 184, 150, 0.12)',
+  dashboardBg: 'rgba(166, 139, 217, 0.12)',
   
-  success: '#22c55e',
-  warning: '#eab308',
-  error: '#ef4444',
-  info: '#3b82f6',
+  // Softer status colors
+  success: '#6FC98B',
+  warning: '#D9B860',
+  error: '#D98B8B',
+  info: '#7EB3D9',
   
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  overlayLight: 'rgba(0, 0, 0, 0.3)',
-  glass: 'rgba(255, 255, 255, 0.03)',
+  overlay: 'rgba(20, 18, 15, 0.65)',
+  overlayLight: 'rgba(20, 18, 15, 0.40)',
+  glass: 'rgba(232, 228, 220, 0.03)',
 };
 
 // Light Theme - Clean and bright
@@ -138,45 +144,46 @@ const lightColors: ThemeColors = {
 };
 
 // CLO Theme - Warm, soft colors inspired by app icon (lavender, cream, blush tones)
+// Designed for comfortable extended reading like a Kindle
 const cloColors: ThemeColors = {
-  // Softer, warmer backgrounds with visible purple/blush undertones
-  background: '#1E1826',  // Soft plum-charcoal (noticeably warmer than dark)
-  surface: '#2A2233',     // Dusty mauve surface
-  surfaceElevated: '#342B40', // Lifted lavender-gray
+  // Soft, warm backgrounds with gentle lavender undertones
+  background: '#1A1620',      // Soft plum-charcoal
+  surface: '#242030',         // Dusty mauve surface
+  surfaceElevated: '#2E293C', // Lifted lavender-gray
   
-  // Warm cream/champagne text (softer, less stark)
-  textPrimary: '#FAF6F0',   // Champagne cream
-  textSecondary: '#D4CCC0', // Soft taupe
-  textTertiary: '#9A9088',  // Warm gray
-  textMuted: '#6A635C',     // Muted brown
+  // Warm cream text for reading comfort
+  textPrimary: '#F5F0E8',     // Warm cream (paper-like)
+  textSecondary: '#C9C2B8',   // Soft warm gray
+  textTertiary: '#8A847A',    // Muted taupe
+  textMuted: '#605B54',       // Soft muted brown
   
   // Soft blush-tinted borders
-  border: 'rgba(250, 246, 240, 0.08)',
-  borderLight: 'rgba(250, 246, 240, 0.12)',
-  borderFocus: 'rgba(250, 246, 240, 0.20)',
+  border: 'rgba(245, 240, 232, 0.07)',
+  borderLight: 'rgba(245, 240, 232, 0.11)',
+  borderFocus: 'rgba(245, 240, 232, 0.18)',
   
-  // Circle accents - softer, more pastel
-  self: '#B8A4F8',          // Soft lilac
-  relationships: '#F5B8A8', // Blush peach
-  home: '#A8D4AC',          // Soft mint sage
-  dashboard: '#D4B8F0',     // Soft wisteria
+  // Circle accents - pastel and gentle
+  self: '#A8A0E8',            // Soft lilac
+  relationships: '#E8B8A8',   // Blush peach
+  home: '#A0D0A8',            // Soft mint sage
+  dashboard: '#C8B0E0',       // Soft wisteria
   
   // Circle backgrounds - gentle glow
-  selfBg: 'rgba(184, 164, 248, 0.15)',
-  relationshipsBg: 'rgba(245, 184, 168, 0.15)',
-  homeBg: 'rgba(168, 212, 172, 0.15)',
-  dashboardBg: 'rgba(212, 184, 240, 0.15)',
+  selfBg: 'rgba(168, 160, 232, 0.12)',
+  relationshipsBg: 'rgba(232, 184, 168, 0.12)',
+  homeBg: 'rgba(160, 208, 168, 0.12)',
+  dashboardBg: 'rgba(200, 176, 224, 0.12)',
   
   // Softer, pastel status colors
-  success: '#7EEAB0',
-  warning: '#FFDF80',
-  error: '#FF9B9B',
-  info: '#A8D4FF',
+  success: '#88D8A0',
+  warning: '#E8D088',
+  error: '#E8A0A0',
+  info: '#A0C8E8',
   
   // Warm blush overlays
-  overlay: 'rgba(30, 24, 38, 0.75)',
-  overlayLight: 'rgba(30, 24, 38, 0.45)',
-  glass: 'rgba(250, 246, 240, 0.04)',
+  overlay: 'rgba(26, 22, 32, 0.70)',
+  overlayLight: 'rgba(26, 22, 32, 0.45)',
+  glass: 'rgba(245, 240, 232, 0.04)',
 };
 
 // ============================================

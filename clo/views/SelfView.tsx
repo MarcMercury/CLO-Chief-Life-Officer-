@@ -2,7 +2,7 @@
  * SelfView - Tile-Based Personal Management
  * 
  * Clean tile navigation that expands to full screen when selected.
- * Tiles: Daily 3, Mental, Physical, Emotional, Practical, Professional
+ * Tiles: Daily 3, Mind, Body, Soul
  */
 
 import React, { useState, useCallback } from 'react';
@@ -27,21 +27,17 @@ import { spacing, borderRadius } from '../constants/theme';
 // Import all Self modules
 import {
   DailyIntentions,
-  MentalModule,
-  PhysicalModule,
-  EmotionalModule,
-  PracticalModule,
-  ProfessionalModule,
+  MindModule,
+  BodyModule,
+  SoulModule,
 } from '../components/self';
 
 // Import custom icons
 import {
   Daily3Icon,
-  MentalIcon,
-  PhysicalIcon,
-  EmotionalIcon,
-  PracticalIcon,
-  ProfessionalIcon,
+  MindIcon,
+  BodyIcon,
+  SoulIcon,
 } from '../components/icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -52,7 +48,7 @@ const TILE_SIZE = (SCREEN_WIDTH - spacing.lg * 2 - TILE_GAP) / 2;
 // TYPES & CONFIGURATION
 // ============================================
 
-type TabType = 'daily3' | 'mental' | 'physical' | 'emotional' | 'practical' | 'professional' | null;
+type TabType = 'daily3' | 'mind' | 'body' | 'soul' | null;
 
 interface TileConfig {
   key: Exclude<TabType, null>;
@@ -62,12 +58,10 @@ interface TileConfig {
 }
 
 const TILES: TileConfig[] = [
-  { key: 'daily3', label: 'Daily 3', IconComponent: Daily3Icon, color: '#10B981' },
-  { key: 'mental', label: 'Mental', IconComponent: MentalIcon, color: '#8B5CF6' },
-  { key: 'physical', label: 'Physical', IconComponent: PhysicalIcon, color: '#EF4444' },
-  { key: 'emotional', label: 'Emotional', IconComponent: EmotionalIcon, color: '#EC4899' },
-  { key: 'practical', label: 'Practical', IconComponent: PracticalIcon, color: '#F59E0B' },
-  { key: 'professional', label: 'Professional', IconComponent: ProfessionalIcon, color: '#3B82F6' },
+  { key: 'daily3', label: 'Daily 3', IconComponent: Daily3Icon, color: '#6FC98B' },
+  { key: 'mind', label: 'Mind', IconComponent: MindIcon, color: '#8B8FD9' },
+  { key: 'body', label: 'Body', IconComponent: BodyIcon, color: '#D98B8B' },
+  { key: 'soul', label: 'Soul', IconComponent: SoulIcon, color: '#D9B860' },
 ];
 
 // ============================================
@@ -134,53 +128,33 @@ export default function SelfView() {
     </Animated.View>
   );
 
-  const renderMental = () => (
+  const renderMind = () => (
     <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
       <View style={styles.tabHeader}>
-        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>🧠 Mental</Text>
-        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Read • Learn • Focus</Text>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>🧠 Mind</Text>
+        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Learn • Read • Grow</Text>
       </View>
-      <MentalModule />
+      <MindModule />
     </Animated.View>
   );
 
-  const renderPhysical = () => (
+  const renderBody = () => (
     <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
       <View style={styles.tabHeader}>
-        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>💪 Physical</Text>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>💪 Body</Text>
         <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Health Dashboard • Goals</Text>
       </View>
-      <PhysicalModule />
+      <BodyModule />
     </Animated.View>
   );
 
-  const renderEmotional = () => (
+  const renderSoul = () => (
     <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
       <View style={styles.tabHeader}>
-        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>💜 Emotional</Text>
-        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Vibe • Burn • Gratitude</Text>
+        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>🔥 Soul</Text>
+        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Gratitude • Release</Text>
       </View>
-      <EmotionalModule />
-    </Animated.View>
-  );
-
-  const renderPractical = () => (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
-      <View style={styles.tabHeader}>
-        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>🛠️ Practical</Text>
-        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Tasks • Lists • Spending</Text>
-      </View>
-      <PracticalModule />
-    </Animated.View>
-  );
-
-  const renderProfessional = () => (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.tabContent}>
-      <View style={styles.tabHeader}>
-        <Text style={[styles.tabTitle, { color: colors.textPrimary }]}>💼 Professional</Text>
-        <Text style={[styles.tabSubtitle, { color: colors.textSecondary }]}>Goals • Network • Ideas</Text>
-      </View>
-      <ProfessionalModule />
+      <SoulModule />
     </Animated.View>
   );
 
@@ -188,16 +162,12 @@ export default function SelfView() {
     switch (activeTab) {
       case 'daily3':
         return renderDaily3();
-      case 'mental':
-        return renderMental();
-      case 'physical':
-        return renderPhysical();
-      case 'emotional':
-        return renderEmotional();
-      case 'practical':
-        return renderPractical();
-      case 'professional':
-        return renderProfessional();
+      case 'mind':
+        return renderMind();
+      case 'body':
+        return renderBody();
+      case 'soul':
+        return renderSoul();
       default:
         return null;
     }

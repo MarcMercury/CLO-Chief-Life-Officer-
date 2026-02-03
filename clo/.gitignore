@@ -33,6 +33,8 @@ yarn-error.*
 # local env files
 .env
 .env*.local
+
+# Credentials - NEVER commit actual credentials
 CREDENTIALS.md
 
 # typescript
@@ -44,3 +46,7 @@ CREDENTIALS.md
 
 # Google Play Service Account Key
 google-service-account.json
+
+# IDE
+.idea/
+.vscode/settings.json

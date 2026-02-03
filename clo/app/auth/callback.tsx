@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /**
  * Auth Callback Route
@@ -11,6 +12,7 @@ import { supabase } from '@/lib/supabase';
  */
 export default function AuthCallback() {
   const router = useRouter();
+  const { colors } = useTheme();
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -59,9 +61,9 @@ export default function AuthCallback() {
   }, [router]);
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#6366f1" />
-      <Text style={styles.text}>Completing sign in...</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ActivityIndicator size="large" color={colors.self} />
+      <Text style={[styles.text, { color: colors.textSecondary }]}>Completing sign in...</Text>
     </View>
   );
 }
@@ -69,13 +71,11 @@ export default function AuthCallback() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 20,
   },
   text: {
-    color: '#A0A0A0',
     fontSize: 16,
   },
 });
