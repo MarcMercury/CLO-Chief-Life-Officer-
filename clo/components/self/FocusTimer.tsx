@@ -29,16 +29,14 @@ export function FocusTimer({ onComplete }: FocusTimerProps) {
   
   const scale = useSharedValue(1);
 
+  const justCompletedRef = useRef(false);
+
   useEffect(() => {
     if (isRunning && timeRemaining > 0) {
       intervalRef.current = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
-            clearInterval(intervalRef.current!);
-            setIsRunning(false);
-            setIsComplete(true);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            onComplete?.();
+            justCompletedRef.current = true;
             return 0;
           }
           return prev - 1;
@@ -51,7 +49,19 @@ export function FocusTimer({ onComplete }: FocusTimerProps) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, onComplete]);
+  }, [isRunning]);
+
+  // Handle completion side-effects outside the state updater
+  useEffect(() => {
+    if (timeRemaining === 0 && justCompletedRef.current) {
+      justCompletedRef.current = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setIsRunning(false);
+      setIsComplete(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onComplete?.();
+    }
+  }, [timeRemaining, onComplete]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);

@@ -36,6 +36,10 @@ import {
   useServiceLogs,
   useProperties,
   useCreateProperty,
+  useWikiEntries,
+  useCreateWikiEntry,
+  useUpdateWikiEntry,
+  useDeleteWikiEntry,
 } from '@/hooks/useHomeOS';
 import { usePropertyStore } from '@/store/propertyStore';
 import { HomeInventoryItem, Vendor } from '@/types/homeos';
@@ -170,7 +174,6 @@ export default function HomeView() {
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showWikiModal, setShowWikiModal] = useState(false);
   const [editingWikiEntry, setEditingWikiEntry] = useState<WikiEntry | null>(null);
-  const [wikiEntries, setWikiEntries] = useState<WikiEntry[]>(MOCK_WIKI_ENTRIES);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Edit mode state
@@ -181,8 +184,20 @@ export default function HomeView() {
   const { data: inventory = [], isLoading: loadingInventory } = useInventory();
   const { data: vendors = [], isLoading: loadingVendors } = useVendors();
   const { data: serviceLogs = [] } = useServiceLogs();
+  const { data: wikiRows = [], isLoading: loadingWiki } = useWikiEntries();
+  const createWiki = useCreateWikiEntry();
+  const updateWiki = useUpdateWikiEntry();
+  const deleteWiki = useDeleteWikiEntry();
 
-  const isLoading = loadingInventory || loadingVendors;
+  // Map DB rows to WikiEntry format for component compatibility
+  const wikiEntries: WikiEntry[] = wikiRows.map(row => ({
+    id: row.id,
+    category: row.category,
+    title: row.title,
+    content: row.content,
+  }));
+
+  const isLoading = loadingInventory || loadingVendors || loadingWiki;
 
   // Calculate stats
   const inventoryCount = inventory.length;
@@ -241,22 +256,20 @@ export default function HomeView() {
   }, []);
 
   const handleAddWikiEntry = useCallback((entry: { category: string; title: string; content: string }) => {
-    const newEntry: WikiEntry = { id: Date.now().toString(), ...entry };
-    setWikiEntries(prev => [...prev, newEntry]);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
+    createWiki.mutate({ category: entry.category, title: entry.title, content: entry.content });
+  }, [createWiki]);
 
   const handleUpdateWikiEntry = useCallback((entry: WikiEntry) => {
-    setWikiEntries(prev => prev.map(e => e.id === entry.id ? entry : e));
+    if (entry.id) {
+      updateWiki.mutate({ id: entry.id, updates: { category: entry.category, title: entry.title, content: entry.content } });
+    }
     setEditingWikiEntry(null);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
+  }, [updateWiki]);
 
   const handleDeleteWikiEntry = useCallback((id: string) => {
-    setWikiEntries(prev => prev.filter(e => e.id !== id));
+    deleteWiki.mutate(id);
     setEditingWikiEntry(null);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
+  }, [deleteWiki]);
 
   const openWikiEntryForEdit = useCallback((entry: WikiEntry) => {
     setEditingWikiEntry(entry);

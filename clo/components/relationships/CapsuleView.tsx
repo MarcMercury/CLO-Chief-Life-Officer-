@@ -28,6 +28,17 @@ import {
   useOpenLoops,
   useCreateOpenLoop,
 } from '@/hooks/useCapsules';
+import {
+  usePlanningItems,
+  usePendingDecisions,
+  useResolveItems,
+  useCreateItem,
+  useVoteOnItem,
+  useMoveToDecision,
+  useConfirmDecision,
+  useCompleteItem,
+  useSubmitPerspective,
+} from '@/hooks/useRelationshipItems';
 import { useVaultState } from '@/hooks/useVault';
 import { useTheme } from '@/providers/ThemeProvider';
 
@@ -91,17 +102,22 @@ export default function CapsuleView({
   const { data: openLoops = [] } = useOpenLoops(capsuleId || '');
   const { mutate: createLoop } = useCreateOpenLoop();
   
-  // Derive plan items from shared tasks with status 'planning'
-  const planItems = useMemo(() => 
-    sharedTasks.filter((t: any) => t.status === 'planning' || !t.status),
-    [sharedTasks]
-  );
+  // Proper relationship items hooks for Plan → Decide → Resolve workflow
+  const { data: planItems = [] } = usePlanningItems(capsuleId || '');
+  const { data: decideItems = [] } = usePendingDecisions(capsuleId || '');
+  const { data: resolveItems = [] } = useResolveItems(capsuleId || '');
+  const { mutate: createItem } = useCreateItem();
+  const { mutate: voteOnItem } = useVoteOnItem();
+  const { mutate: moveToDecision } = useMoveToDecision();
+  const { mutate: confirmDecision } = useConfirmDecision();
+  const { mutate: completeItem } = useCompleteItem();
+  const { mutate: submitPerspective } = useSubmitPerspective();
   
-  // Derive decide items from shared tasks with status 'pending'
-  const decideItems = useMemo(() => 
-    sharedTasks.filter((t: any) => t.status === 'pending'),
-    [sharedTasks]
-  );
+  // Determine if current user is user_a in the capsule
+  const isUserA = useMemo(() => {
+    // capsule.partner_id is user_b_id; if current user is NOT user_b, they are user_a
+    return capsule?.partner_id !== userId;
+  }, [capsule?.partner_id, userId]);
   
   // Use vault state hook for proper persistence
   const vaultState = useVaultState(capsuleId || '');
@@ -279,30 +295,27 @@ export default function CapsuleView({
           <PlanModule
             items={planItems as any}
             onCreateItem={(title: string, description?: string, category?: string) => {
-              // Persist to database as shared task!
+              // Persist as relationship_item with 'planning' status
               if (capsuleId) {
-                createTask({
+                createItem({
                   capsule_id: capsuleId,
                   title,
-                  description,
+                  description: description || null,
+                  category: (category as any) || 'general',
                 });
               }
             }}
             onVote={(id: string, vote: boolean) => {
-              // TODO: Add voting to shared_tasks table
-              console.log('Vote:', id, vote);
+              voteOnItem({
+                itemId: id,
+                isUserA,
+                vote,
+              });
             }}
             onPromote={(id: string) => {
-              // Update task status to 'pending' (moves to Decide)
-              if (capsuleId) {
-                toggleTask({
-                  taskId: id,
-                  capsuleId,
-                  isCompleted: false, // Not completed, just promoted
-                });
-              }
+              moveToDecision({ itemId: id });
             }}
-            isUserA={true}
+            isUserA={isUserA}
           />
         );
       case 'decide':
@@ -310,26 +323,22 @@ export default function CapsuleView({
           <DecideModule
             items={decideItems as any}
             onConfirm={(id: string) => {
-              // Mark task as confirmed by current user
-              console.log('Confirm decision:', id);
+              confirmDecision({
+                itemId: id,
+                isUserA,
+              });
             }}
             onComplete={(id: string) => {
-              // Mark task as completed in database!
-              if (capsuleId) {
-                toggleTask({
-                  taskId: id,
-                  capsuleId,
-                  isCompleted: true,
-                });
-              }
+              completeItem({ itemId: id });
             }}
             onAddItem={(title: string, description: string) => {
-              // Add directly to pending (Decide zone)
+              // Add directly to pending_decision status
               if (capsuleId) {
-                createTask({
+                createItem({
                   capsule_id: capsuleId,
                   title,
                   description,
+                  category: 'general',
                 });
               }
             }}
@@ -339,31 +348,36 @@ export default function CapsuleView({
       case 'resolve':
         return (
           <ResolveModule
-            items={openLoops as any[]}
+            items={resolveItems as any[]}
             onCreateIssue={(issue: string) => {
-              // Persist to database!
               if (capsuleId) {
-                createLoop({
+                createItem({
                   capsule_id: capsuleId,
                   title: issue,
-                } as any);
+                  category: 'general',
+                });
               }
             }}
             onSubmitPerspective={(resolveId: string, feeling: string, need: string, willing: string, compromise: string) => {
-              // TODO: Add perspective update mutation
-              console.log('Perspective submitted:', { resolveId, feeling, need, willing, compromise });
+              submitPerspective({
+                itemId: resolveId,
+                isUserA,
+                feeling,
+                need,
+                willing,
+              });
             }}
             onAcceptCompromise={(id: string) => {
-              // TODO: Add resolve mutation
-              console.log('Compromise accepted:', id);
+              completeItem({ itemId: id });
             }}
-            isUserA={true}
+            isUserA={isUserA}
             userId={userId}
           />
         );
       case 'vault':
         return (
           <VaultEnhanced
+            capsuleId={capsuleId || ''}
             items={vaultState.items}
             hasPasscode={vaultState.hasPasscode}
             partnerHasPasscode={vaultState.partnerHasPasscode}
@@ -374,25 +388,11 @@ export default function CapsuleView({
             onUnlock={async (passcode: string) => {
               return await vaultState.verifyPasscode(passcode);
             }}
-            onUpload={async (title: string, content: string, contentType: any) => {
-              await vaultState.uploadItem({
-                title,
-                content,
-                content_type: contentType,
-              });
+            onUpload={async (item) => {
+              await vaultState.uploadItem(item);
             }}
-            onUploadFile={async (uri: string, fileName: string, fileSize: number, mimeType: string, itemType: any, title: string) => {
-              // Upload file to storage first
-              const fileUrl = await vaultState.uploadFile(uri, fileName, mimeType);
-              // Then create vault item
-              await vaultState.uploadItem({
-                title,
-                content_type: itemType,
-                file_url: fileUrl,
-                file_name: fileName,
-                file_size: fileSize,
-                mime_type: mimeType,
-              });
+            onUploadFile={async (uri: string, fileName: string, mimeType: string) => {
+              return await vaultState.uploadFile(uri, fileName, mimeType);
             }}
             onApprove={async (id: string) => {
               await vaultState.approveItem(id);

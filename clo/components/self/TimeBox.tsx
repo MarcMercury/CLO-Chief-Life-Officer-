@@ -43,6 +43,7 @@ export function TimeBox({ onComplete }: TimeBoxProps) {
   const [isComplete, setIsComplete] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const justCompletedRef = useRef(false);
   
   const scale = useSharedValue(1);
 
@@ -51,11 +52,7 @@ export function TimeBox({ onComplete }: TimeBoxProps) {
       intervalRef.current = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
-            clearInterval(intervalRef.current!);
-            setIsRunning(false);
-            setIsComplete(true);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            onComplete?.();
+            justCompletedRef.current = true;
             return 0;
           }
           return prev - 1;
@@ -68,7 +65,19 @@ export function TimeBox({ onComplete }: TimeBoxProps) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, onComplete]);
+  }, [isRunning]);
+
+  // Handle completion side-effects outside the state updater
+  useEffect(() => {
+    if (timeRemaining === 0 && justCompletedRef.current) {
+      justCompletedRef.current = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setIsRunning(false);
+      setIsComplete(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onComplete?.();
+    }
+  }, [timeRemaining, onComplete]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);

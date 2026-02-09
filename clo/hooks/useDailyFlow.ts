@@ -479,7 +479,7 @@ export function useBacklogItems() {
         .from('items_with_circles')
         .select('*')
         .neq('status', 'COMPLETED')
-        .or('due_date.is.null,due_date.lt.now()');
+        .or(`due_date.is.null,due_date.lt.${new Date().toISOString()}`);
       
       if (error) throw error;
       

@@ -19,20 +19,16 @@ import Animated, {
   FadeIn,
   FadeInUp,
   FadeInRight,
-  FadeOutLeft,
-  FadeOutRight,
   SlideInRight,
-  SlideOutLeft,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
   withSequence,
   runOnJS,
-  interpolateColor,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Text, Heading, Subheading, Label, Caption } from '@/components/ui';
+import { Text, Heading, Subheading } from '@/components/ui';
 import { colors, spacing, borderRadius } from '@/constants/theme';
 import {
   useDailyFlow,

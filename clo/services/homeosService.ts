@@ -785,3 +785,95 @@ export async function setPrimaryProperty(id: string): Promise<boolean> {
   }
   return true;
 }
+
+// ============================================
+// HOUSEHOLD WIKI
+// ============================================
+
+export interface WikiEntryRow {
+  id: string;
+  user_id: string;
+  property_id: string | null;
+  category: string;
+  title: string;
+  content: string;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateWikiEntryInput = Pick<WikiEntryRow, 'category' | 'title' | 'content'> & {
+  property_id?: string | null;
+};
+
+export async function getWikiEntries(propertyId?: string | null): Promise<WikiEntryRow[]> {
+  let query = (supabase as any)
+    .from('household_wiki')
+    .select('*')
+    .order('is_pinned', { ascending: false })
+    .order('updated_at', { ascending: false });
+
+  if (propertyId) {
+    query = query.eq('property_id', propertyId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Failed to fetch wiki entries:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createWikiEntry(
+  input: CreateWikiEntryInput
+): Promise<{ data: WikiEntryRow | null; error: string | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: 'Not authenticated' };
+
+  const { data, error } = await (supabase as any)
+    .from('household_wiki')
+    .insert({
+      user_id: user.id,
+      ...input,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to create wiki entry:', error);
+    return { data: null, error: error.message };
+  }
+  return { data, error: null };
+}
+
+export async function updateWikiEntry(
+  id: string,
+  updates: Partial<Pick<WikiEntryRow, 'category' | 'title' | 'content' | 'is_pinned'>>
+): Promise<{ data: WikiEntryRow | null; error: string | null }> {
+  const { data, error } = await (supabase as any)
+    .from('household_wiki')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to update wiki entry:', error);
+    return { data: null, error: error.message };
+  }
+  return { data, error: null };
+}
+
+export async function deleteWikiEntry(id: string): Promise<{ success: boolean; error: string | null }> {
+  const { error } = await (supabase as any)
+    .from('household_wiki')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Failed to delete wiki entry:', error);
+    return { success: false, error: error.message };
+  }
+  return { success: true, error: null };
+}

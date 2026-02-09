@@ -104,9 +104,9 @@ export function usePulse(): UsePulseReturn {
 
   // Check if any real APIs are connected
   const isUsingRealData = 
-    state.sources.bioMetrics !== 'mock' && state.sources.bioMetrics !== null ||
-    state.sources.homeStatus !== 'mock' && state.sources.homeStatus !== null ||
-    state.sources.relationshipContext !== 'mock' && state.sources.relationshipContext !== null;
+    (state.sources.bioMetrics !== 'mock' && state.sources.bioMetrics !== null) ||
+    (state.sources.homeStatus !== 'mock' && state.sources.homeStatus !== null) ||
+    (state.sources.relationshipContext !== 'mock' && state.sources.relationshipContext !== null);
 
   // Load cached data immediately, don't auto-sync on every mount
   // User can trigger manual sync with the button

@@ -3,11 +3,8 @@ import { Session, User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
+import * as Linking from 'expo-linking';
 import { AppState, AppStateStatus, Platform } from 'react-native';
-
-// Required for proper OAuth flow on native
-WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
   user: User | null;
@@ -33,23 +30,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lastActiveTime, setLastActiveTime] = useState(Date.now());
 
   useEffect(() => {
+    // Safety timeout - if session check takes too long, stop loading
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('[Auth] Session check timeout - forcing loading to complete');
+        setLoading(false);
+      }
+    }, 5000); // 5 second timeout
+    
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('[Auth] Error getting session:', error);
+        setLoading(false); // Don't block the app on error
+      });
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('[Auth] State change:', _event);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Biometric lock when app goes to background
@@ -109,12 +123,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Create profile from user metadata (only use columns that exist in table)
       const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-      const { error } = await supabase
-        .from('profiles')
+      const { error } = await (supabase
+        .from('profiles') as any)
         .insert({
           id: user.id,
           full_name: fullName,
-        } as any);
+        });
 
       if (error && error.code !== '23505') { // Ignore duplicate key errors
         console.error('Failed to create profile:', error);
@@ -127,6 +141,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+    // Create the redirect URL for the current platform
+    const redirectUrl = Platform.OS === 'web' 
+      ? `${window.location.origin}/auth/callback`
+      : Linking.createURL('auth/callback');
+    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -134,9 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: {
           full_name: fullName,
         },
-        emailRedirectTo: typeof window !== 'undefined' 
-          ? `${window.location.origin}/auth/callback`
-          : 'clo://auth/callback',
+        emailRedirectTo: redirectUrl,
       },
     });
     
@@ -150,85 +167,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      // Create redirect URL that works on both web and native
-      const redirectUrl = AuthSession.makeRedirectUri({
-        scheme: 'clo',
-        path: 'auth/callback',
+      // Create the redirect URL for the current platform
+      const redirectUrl = Platform.OS === 'web' 
+        ? window.location.origin 
+        : Linking.createURL('auth/callback');
+      
+      console.log('[Auth] Starting Google OAuth with redirect:', redirectUrl);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: Platform.OS !== 'web', // On mobile, we handle the browser ourselves
+        },
       });
-
-      console.log('[Auth] Google OAuth redirect URL:', redirectUrl);
-
-      if (Platform.OS === 'web') {
-        // Web: Use standard OAuth flow
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin + '/auth/callback',
-          },
-        });
+      
+      if (error) {
+        console.error('[Auth] OAuth error:', error);
         return { error };
-      } else {
-        // Native: Use WebBrowser for OAuth flow
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: redirectUrl,
-            skipBrowserRedirect: true, // We'll handle the browser ourselves
-          },
-        });
-
-        if (error) {
-          return { error };
-        }
-
-        if (data?.url) {
-          // Open the OAuth URL in an in-app browser
-          const result = await WebBrowser.openAuthSessionAsync(
-            data.url,
-            redirectUrl,
-            {
-              showInRecents: true,
-              preferEphemeralSession: false, // Remember sign-in for better UX
-            }
-          );
-
-          console.log('[Auth] WebBrowser result:', result.type);
-
-          if (result.type === 'success' && result.url) {
-            // Parse the callback URL for tokens
-            const url = new URL(result.url);
-            const params = new URLSearchParams(url.hash.substring(1) || url.search.substring(1));
+      }
+      
+      // On mobile, open the OAuth URL in an in-app browser
+      if (Platform.OS !== 'web' && data?.url) {
+        console.log('[Auth] Opening OAuth URL in browser:', data.url);
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUrl
+        );
+        
+        console.log('[Auth] Browser result:', result);
+        
+        if (result.type === 'success' && result.url) {
+          // Extract the auth tokens from the callback URL
+          const url = new URL(result.url);
+          const params = new URLSearchParams(url.hash.substring(1) || url.search.substring(1));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          
+          if (accessToken && refreshToken) {
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
             
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
-
-            if (accessToken && refreshToken) {
-              // Set the session with the tokens
-              const { error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-
-              if (sessionError) {
-                return { error: sessionError };
-              }
+            if (sessionError) {
+              console.error('[Auth] Session error:', sessionError);
+              return { error: sessionError };
             }
-          } else if (result.type === 'cancel' || result.type === 'dismiss') {
-            // User cancelled - not an error, just return
-            return { error: null };
+            console.log('[Auth] Session set successfully from OAuth callback');
           }
+        } else if (result.type === 'cancel') {
+          console.log('[Auth] User cancelled OAuth');
+          return { error: null }; // User cancelled, not an error
         }
       }
-
+      
       return { error: null };
-    } catch (err) {
-      console.error('[Auth] Google sign-in error:', err);
-      return { 
-        error: { 
-          message: 'Failed to complete Google sign-in',
-          name: 'AuthError',
-        } as AuthError 
-      };
+    } catch (e) {
+      console.error('[Auth] Google sign-in error:', e);
+      return { error: { message: 'Failed to sign in with Google' } as AuthError };
     }
   };
 

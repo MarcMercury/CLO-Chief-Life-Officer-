@@ -11,7 +11,7 @@ export type InventoryCategory =
   | "vehicle"
   | "other";
 
-export type SubscriptionFrequency = "monthly" | "quarterly" | "annual" | "other";
+export type SubscriptionFrequency = "weekly" | "monthly" | "quarterly" | "yearly" | "other";
 
 export type SubscriptionCategory =
   | "streaming"

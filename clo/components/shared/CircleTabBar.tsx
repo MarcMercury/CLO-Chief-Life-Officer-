@@ -1,11 +1,5 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Animated, { 
-  useAnimatedStyle, 
-  withTiming, 
-  useSharedValue,
-  interpolateColor 
-} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 interface Tab {

@@ -35,8 +35,14 @@ import {
   updateProperty,
   deleteProperty,
   setPrimaryProperty,
+  getWikiEntries,
+  createWikiEntry,
+  updateWikiEntry,
+  deleteWikiEntry,
   Property,
   CreatePropertyInput,
+  WikiEntryRow,
+  CreateWikiEntryInput,
 } from '@/services/homeosService';
 import {
   CreateInventoryItemInput,
@@ -427,4 +433,63 @@ export function useSetPrimaryProperty() {
 }
 
 // Re-export types
-export type { Property, CreatePropertyInput };
+export type { Property, CreatePropertyInput, WikiEntryRow, CreateWikiEntryInput };
+
+// ============================================
+// WIKI HOOKS
+// ============================================
+
+export function useWikiEntries() {
+  const propertyId = usePropertyStore((s) => s.selectedPropertyId);
+  return useQuery({
+    queryKey: ['wikiEntries', propertyId],
+    queryFn: () => getWikiEntries(propertyId),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useCreateWikiEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateWikiEntryInput) => createWikiEntry(input),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['wikiEntries'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useUpdateWikiEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Pick<WikiEntryRow, 'category' | 'title' | 'content' | 'is_pinned'>> }) =>
+      updateWikiEntry(id, updates),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['wikiEntries'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}
+
+export function useDeleteWikiEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteWikiEntry(id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ['wikiEntries'] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+  });
+}

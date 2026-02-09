@@ -76,7 +76,7 @@ export async function saveApiKeyIntegration(
     .upsert({
       user_id: user.id,
       provider,
-      api_key_encrypted: apiKey,
+      access_token: apiKey,
       is_active: true,
       config,
     }, {

@@ -25,7 +25,7 @@ const getHealthColor = (status: string) => {
 export default function CapsuleCard({ capsule, index = 0, onPress }: CapsuleCardProps) {
   const partner = capsule.partner;
   const health = capsule.relationship_health;
-  const isPending = capsule.status === 'pending';
+  const isPending = capsule.status?.toLowerCase() === 'pending';
   const inviteEmail = capsule.user_b_email || capsule.invite_email;
   
   const handlePress = () => {

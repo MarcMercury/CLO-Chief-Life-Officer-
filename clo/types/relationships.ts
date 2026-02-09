@@ -79,12 +79,13 @@ export interface InteractionLog {
   id: string;
   capsule_id: string;
   logged_by: string;
-  interaction_type: InteractionType;
-  interaction_date: string;
-  duration_minutes: number | null;
-  quality_rating: number | null; // 1-5
-  notes: string | null;
-  is_meaningful: boolean;
+  source: string; // 'MANUAL', 'GMAIL', 'CALENDAR', 'SMS_IMPORT', 'SHARE_EXTENSION'
+  interaction_type: string; // 'MEETING', 'MESSAGE', 'CALL', 'MEMORY', 'GIFT', 'PHOTO'
+  summary: string | null;
+  sentiment_detected: string | null; // 'POSITIVE', 'NEUTRAL', 'NEGATIVE', 'URGENT'
+  open_loop_detected: boolean;
+  raw_content: string | null;
+  occurred_at: string;
   created_at: string;
 }
 
@@ -132,6 +133,7 @@ export interface SharedTask {
   title: string;
   description: string | null;
   priority: SharedTaskPriority;
+  is_completed: boolean;
   due_date: string | null;
   completed_at: string | null;
   created_at: string;
@@ -214,12 +216,9 @@ export interface AcceptInviteInput {
 
 export interface LogInteractionInput {
   capsule_id: string;
-  interaction_type: InteractionType;
-  interaction_date: string;
-  duration_minutes?: number;
-  quality_rating?: number;
-  notes?: string;
-  is_meaningful?: boolean;
+  interaction_type: string;
+  summary?: string;
+  source?: string;
 }
 
 export interface CreateOpenLoopInput {

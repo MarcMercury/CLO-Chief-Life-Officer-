@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import {
   usePendingDecisions,
   useConfirmedDecisions,
+  useCompletedItems,
   useAllPendingItems,
   useConfirmDecision,
   useCompleteItem,
@@ -56,6 +57,7 @@ export default function CapsuleDecisions({ capsuleId }: CapsuleDecisionsProps) {
   // Queries
   const { data: pendingItems, isLoading: loadingPending } = usePendingDecisions(capsuleId);
   const { data: confirmedItems, isLoading: loadingConfirmed } = useConfirmedDecisions(capsuleId);
+  const { data: completedItems = [], isLoading: loadingCompleted } = useCompletedItems(capsuleId);
   const { data: allPendingItems } = useAllPendingItems(capsuleId);
   const { data: isUserA } = useIsUserA(capsuleId);
   const { data: counts } = useItemCounts(capsuleId);
@@ -234,13 +236,12 @@ export default function CapsuleDecisions({ capsuleId }: CapsuleDecisionsProps) {
     );
   };
 
-  const isLoading = loadingPending || loadingConfirmed;
-  const completedItems = confirmedItems?.filter(i => i.status === 'completed') || [];
-  const activeConfirmedItems = confirmedItems?.filter(i => i.status === 'confirmed') || [];
+  const isLoading = loadingPending || loadingConfirmed || loadingCompleted;
+  const activeConfirmedItems = confirmedItems || [];
 
   // Calculate total pending from ALL undecided items
   const totalPending = counts 
-    ? counts.planning + counts.needs_resolve + counts.resolving + counts.pending_decision
+    ? counts.planning + counts.resolving + counts.pending_decision
     : 0;
 
   return (

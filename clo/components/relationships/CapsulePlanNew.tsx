@@ -38,7 +38,7 @@ import { RelationshipItem, RelationshipItemCategory } from '@/types/relationship
 // Category configuration
 const CATEGORIES: { value: RelationshipItemCategory; label: string; icon: string }[] = [
   { value: 'date', label: 'Date', icon: '💕' },
-  { value: 'trip', label: 'Trip', icon: '✈️' },
+  { value: 'travel', label: 'Trip', icon: '✈️' },
   { value: 'money', label: 'Money', icon: '💰' },
   { value: 'shopping', label: 'Shopping', icon: '🛍️' },
   { value: 'gift', label: 'Gift', icon: '🎁' },

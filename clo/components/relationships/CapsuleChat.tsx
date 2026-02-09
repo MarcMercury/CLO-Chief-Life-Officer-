@@ -153,7 +153,7 @@ export default function CapsuleChat({ capsuleId }: CapsuleChatProps) {
                         styles.messageText,
                         isMe ? styles.textMe : styles.textOther
                       ]}>
-                        {msg.content}
+                        {msg.encrypted_content}
                       </Text>
                       <Text style={[
                         styles.messageTime,

@@ -15,7 +15,7 @@ export interface Item {
   title: string;
   description: string | null;
   item_type: 'TASK' | 'NOTE' | 'EVENT' | 'MEMORY';
-  status: string;
+  status: 'PENDING' | 'COMPLETED' | 'ARCHIVED';
   due_date: string | null;
   external_source: string | null;
   external_id: string | null;
